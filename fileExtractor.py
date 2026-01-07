@@ -1,95 +1,85 @@
-import os
-import re
-import time
 import requests
 import feedparser
-from urllib.parse import quote_plus
+import time
+import os
 
-# =======================
-# CONFIGURAZIONE
-# =======================
-ARXIV_API = "http://export.arxiv.org/api/query"
+ARXIV_API_URL = "http://export.arxiv.org/api/query"
 
 KEYWORDS = [
     "automatic speech recognition",
     "speech to text"
 ]
 
-BASE_DIR = "corpus/gruppo_C_asr"
+RESULTS_PER_PAGE = 100
+MAX_RESULTS = 500
+OUTPUT_DIR = "arxiv_html_papers"
 
-RESULTS_PER_CALL = 100   # limite API arXiv
-DELAY = 3                # rispetto policy arXiv
 
-# =======================
-# PREPARAZIONE CARTELLE
-# =======================
-os.makedirs(BASE_DIR, exist_ok=True)
+def build_query():
+    return " OR ".join(f'all:"{kw}"' for kw in KEYWORDS)
 
-# =======================
-# FUNZIONI
-# =======================
-def sanitize_filename(text):
-    """Rende sicuro il nome del file"""
-    return re.sub(r"[^\w\-_.]", "_", text)
 
-def get_html_url(entry):
-    """Restituisce l'URL HTML dell'articolo se disponibile"""
-    for link in entry.links:
-        if link.rel == "alternate" and "/abs/" in link.href:
-            return link.href.replace("/abs/", "/html/")
+def extract_arxiv_id(entry_id):
+    # esempio: http://arxiv.org/abs/2301.12345v2
+    return entry_id.split("/")[-1]
+
+
+def html_url(arxiv_id):
+    return f"https://arxiv.org/html/{arxiv_id}"
+
+
+def download_html(arxiv_id):
+    url = html_url(arxiv_id)
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200 and "<html" in r.text.lower():
+            return r.text
+    except requests.RequestException:
+        pass
     return None
 
-# =======================
-# MAIN
-# =======================
-for keyword in KEYWORDS:
-    print(f"\n🔍 Keyword: {keyword}")
+
+def main():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    query = build_query()
     start = 0
+    saved = 0
 
-    encoded_keyword = quote_plus(keyword)
+    while start < MAX_RESULTS:
+        params = {
+            "search_query": query,
+            "start": start,
+            "max_results": RESULTS_PER_PAGE
+        }
 
-    while True:
-        query = f"all:{encoded_keyword}"
+        response = requests.get(ARXIV_API_URL, params=params)
+        feed = feedparser.parse(response.text)
 
-        url = (
-            f"{ARXIV_API}?"
-            f"search_query={query}"
-            f"&start={start}"
-            f"&max_results={RESULTS_PER_CALL}"
-        )
-
-        feed = feedparser.parse(url)
-
-        # Fine risultati
-        if len(feed.entries) == 0:
+        if not feed.entries:
             break
 
         for entry in feed.entries:
-            title = entry.title.lower()
-            abstract = entry.summary.lower()
+            arxiv_id = extract_arxiv_id(entry.id)
+            print(f"Controllo {arxiv_id}...")
 
-            if keyword in title or keyword in abstract:
-                html_url = get_html_url(entry)
-                if not html_url:
-                    continue
+            html = download_html(arxiv_id)
+            if html:
+                filename = arxiv_id.replace("/", "_") + ".html"
+                path = os.path.join(OUTPUT_DIR, filename)
 
-                try:
-                    response = requests.get(html_url, timeout=10)
-                    if response.status_code != 200:
-                        continue
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(html)
 
-                    filename = sanitize_filename(entry.title) + ".html"
-                    filepath = os.path.join(BASE_DIR, filename)
+                print(f"  ✔ Salvato: {path}")
+                saved += 1
 
-                    with open(filepath, "w", encoding="utf-8") as f:
-                        f.write(response.text)
+            time.sleep(0.5)  # rispetto dei rate limit
 
-                    print(f"  ✔ Salvato: {entry.title}")
+        start += RESULTS_PER_PAGE
 
-                except Exception:
-                    continue
+    print(f"\nTotale articoli HTML salvati: {saved}")
 
-        start += RESULTS_PER_CALL
-        time.sleep(DELAY)
 
-print("\n Corpus ASR creato correttamente.")
+if __name__ == "__main__":
+    main()

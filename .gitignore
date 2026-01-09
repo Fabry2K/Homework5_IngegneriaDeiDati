@@ -1,1 +1,24 @@
-**/arxiv_html_papers/
+# ===== Python =====
+venv/
+__pycache__/
+*.py[cod]
+
+# ===== Flask =====
+instance/
+*.log
+
+# ===== Elasticsearch / Docker =====
+esdata/
+docker-data/
+*.lock
+
+# ===== Corpus / documenti =====
+arxiv_html_papers/
+
+# ===== OS / editor =====
+.DS_Store
+.vscode/
+.idea/
+
+# ===== Misc =====
+.env

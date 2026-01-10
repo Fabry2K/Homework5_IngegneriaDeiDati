@@ -39,3 +39,25 @@ class Search:
     
 
     #authors: "ltx_title ltx_titledocument" --- "ltx_personname", "ltx_document ltx_authors_1line"--> in questo caso restituire il contenuto intero del nipote <p>, ltx_abstract,  
+
+
+
+    # *****TODO*****
+    # Xpath per data:
+    # //div[@class='ltx_page_logo']
+    # estrarre data
+
+    # Xpath per abstract:
+    # //div[@class='ltx_abstract']
+
+    # Xpath per titolo:
+    # //h1[@class='ltx_title ltx_title_document']
+    # !! togliere \n
+
+
+    # Xpath per autori:
+    # XPATH_EXPR = "//span[@class='ltx_personname'] | //article[@class='ltx_document ltx_authors_1line']/div[1][@id='p1']/p[@id='p1.3']"
+    # !! sanificare dai tag con '/' ; togliere numeri  ;  punteggiatura
+
+
+

@@ -70,8 +70,9 @@ class Search:
                 testo = tree.xpath("//section[@class='ltx_section']")
 
                 #pulizia
-                titolo = " ".join(t.strip() for t in titolo if t.strip())      #-->rimozione spazi, tab e newline
+                titolo = " ".join(t.strip() for t in titolo if t.strip())      #-->rimozione spazi fra righe, tab e newline
                 data = self.clean_date(data)
+                array_autori = self.estrazione_autori(autori)
                 
 
 
@@ -110,7 +111,20 @@ class Search:
     def estrazione_autori(self, tree):
         autori = tree.xpath("//span[@class='ltx_personname'] | //p[@id='p1.3']")
         autori = " ".join(a.strip() for a in autori if a.strip())
-        return autori if autori else None
+        
+        # Rimuovi le virgole finali
+        autori = re.sub(r',$', '', autori, flags=re.MULTILINE)
+
+        # Rimuovi i tag del tipo \qualcosa (compresi eventuali numeri)
+        autori = re.sub(r'\\[a-zA-Z]+\d*', '', autori)
+
+        # Rimuovi eventuali spazi extra
+        autori = re.sub(r'\s+', ' ', autori)
+
+        # Dividi per riga e ripulisci eventuali spazi all'inizio/fine
+        array_autori = [line.strip() for line in autori.split('\n') if line.strip()]
+
+        return array_autori
 
 
 

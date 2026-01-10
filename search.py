@@ -56,8 +56,12 @@ class Search:
 
 
     # Xpath per autori:
-    # XPATH_EXPR = "//span[@class='ltx_personname'] | //article[@class='ltx_document ltx_authors_1line']/div[1][@id='p1']/p[@id='p1.3']"
+    # //span[@class='ltx_personname'] | //article[@class='ltx_document ltx_authors_1line']/div[1][@id='p1']/p[@id='p1.3']
     # !! sanificare dai tag con '/' ; togliere numeri  ;  punteggiatura
+
+    # Xpath per testo:
+    # //section[@class='ltx_section']
+    # !! togliere comandi per caratteri speciali fatti con '{\comando}'
 
 
 

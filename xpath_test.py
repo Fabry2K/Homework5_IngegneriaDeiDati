@@ -8,7 +8,7 @@ from lxml import html
 HTML_DIR = "arxiv_html_papers"
 
 # 👉 CAMBIA QUESTO XPATH
-XPATH_EXPR = "//span[@class='ltx_personname'] | //article[@class='ltx_document ltx_authors_1line']/div[1][@id='p1']/p[@id='p1.3']"
+XPATH_EXPR = "//section[@class='ltx_section']"
 
 # =========================
 # LOGICA

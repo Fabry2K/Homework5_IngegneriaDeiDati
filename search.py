@@ -114,7 +114,7 @@ class Search:
         documents = self.docs()
 
         for document in documents:
-            print(document['_source']['autori'], end="\n\n")
+            print(document['_source']['data'], end="\n\n")
 
     
 
@@ -125,22 +125,17 @@ class Search:
 
     #pulizia data --> rimozione elementi indesiderati
     def clean_date(self, data):
-
-        data = re.sub(r"\bGenerated on\b", "", data, flags=re.IGNORECASE)
-        data = re.sub(r"\bby\b", "", data, flags=re.IGNORECASE)
-
-        data = re.sub(r"\b\d{2}:\d{2}:\d{2}\b", "", data)
-
-
-        return " ".join(data.split())
-
-
-    #conversione data in formato yyyy/mm/dd
-    def to_iso_date(self, data):
-
-        data = datetime.strptime(data, "%a %b %d %Y")
-        return data.strftime("%Y-%m-%d")
+        # rimuovo parti indesiderate
+        data = data.replace("Generated  on ", "").replace(" by", "").strip()
         
+        # parsing
+        dt = datetime.strptime(data, "%a %b %d %H:%M:%S %Y")
+        
+        # formato finale
+        formatted_date = dt.strftime("%Y/%m/%d")
+        
+        return formatted_date
+            
 
         
 

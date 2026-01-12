@@ -1,9 +1,11 @@
 import re
 from flask import Flask, render_template, request
+from main import main
 from search import Search
 
 app = Flask(__name__)
-search_client = Search()
+
+main()
 
 
 @app.get('/')

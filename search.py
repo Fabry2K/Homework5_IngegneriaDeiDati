@@ -17,24 +17,36 @@ from elasticsearch import Elasticsearch
 class Search:
     def __init__(self):
         self.es = Elasticsearch("http://localhost:9200")
+        self.index_name = 'hwk5_dataing'
+        print('Connected to Elasticsearch!')
+
+
 
     def ping(self):
         return self.es.ping()
 
-    def search(self, index, query):
-        return self.es.search(
-            index=index,
-            query={
-                "multi_match": {
-                    "query": query,
-                    "fields": ["title", "abstract", "full_text"]
-                }
-            }
-        )
+    # def search(self, index, query):
+    #     return self.es.search(
+    #         index=index,
+    #         query={
+    #             "multi_match": {
+    #                 "query": query,
+    #                 "fields": ["title", "abstract", "full_text"]
+    #             }
+    #         }
+    #     )
     
+
+
+
+
+    ###################################
+    #######Creazione dell'indice#######
+    ###################################
+
     def create_index(self):
-        self.es.indices.delete(index='hwk5_dataIng', ignore_unavailable=True)
-        self.es.indices.create(index='hwk5_dataIng')
+        self.es.indices.delete(index=self.index_name, ignore_unavailable=True)
+        self.es.indices.create(index=self.index_name)
 
     
     
@@ -43,7 +55,7 @@ class Search:
     ###################################
 
     def insert_document(self, document):
-        return self.es.index(index='hwk5_dataIng', body=document)
+        return self.es.index(index=self.index_name, body=document)
     
     
     def docs(self):
@@ -60,25 +72,50 @@ class Search:
                 with open(full_path, 'r', encoding='utf-8') as f:
                     html_content = f.read()
                 
-                tree = html.fromstring(html_content)
+                    tree = html.fromstring(html_content)
 
-                #XPath
-                titolo = tree.xpath("//h1[@class='ltx_title ltx_title_document']")    
-                abstract = tree.xpath("//div[@class='ltx_abstract']")                 
-                data = tree.xpath("//div[@class='ltx_page_logo']")                  
-                autori = self.estrazione_autori(tree)  
-                testo = tree.xpath("//section[@class='ltx_section']")
+                    #XPath
+                    titolo = tree.xpath("//h1[@class='ltx_title ltx_title_document']/text()")    
+                    abstract = tree.xpath("//div[@class='ltx_abstract']//text()")                 
+                    data = tree.xpath("//div[@class='ltx_page_logo']/text()")                  
+                    autori = self.estrazione_autori(tree)  
+                    testo = tree.xpath("//section[@class='ltx_section']/text()")
 
-                #pulizia
-                titolo = " ".join(t.strip() for t in titolo if t.strip())      #-->rimozione spazi fra righe, tab e newline
-                data = self.clean_date(data)
-                array_autori = self.estrazione_autori(autori)
+                    #pulizia    
+                    titolo = " ".join(t.strip() for t in titolo if t.strip())      #-->rimozione spazi fra righe, tab e newline
+                
+                    abstract = " ".join(a.strip() for a in abstract if a.strip())
+
+                    data = " ".join(d.strip() for d in data if d.strip())               
+                    data = self.clean_date(data)
+
+
+
+                    documents.append({
+                        '_index' : self.index_name,
+                        '_source' : {
+                            'titolo' : titolo,
+                            'abstract' : abstract,
+                            'data' : data,
+                            'autori' : autori,
+                            'testo' : testo  
+                        }
+                    })
+
+        conversion_end = time.time()
+        print(f'Conversion Time: {conversion_end - conversion_start:.3f}s')
+
+        return documents
                 
 
 
     def insert_documents(self):
         index_start = time.time()
         documents = self.docs()
+
+        for document in documents:
+            print(document['_source']['autori'], end="\n\n")
+
     
 
 
@@ -109,7 +146,7 @@ class Search:
 
     #estrazione autori
     def estrazione_autori(self, tree):
-        autori = tree.xpath("//span[@class='ltx_personname'] | //p[@id='p1.3']")
+        autori = tree.xpath("//span[@class='ltx_personname']/text() | //p[@id='p1.3']/text()")
         autori = " ".join(a.strip() for a in autori if a.strip())
         
         # Rimuovi le virgole finali

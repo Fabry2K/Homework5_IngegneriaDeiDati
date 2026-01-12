@@ -25,20 +25,6 @@ class Search:
     def ping(self):
         return self.es.ping()
 
-    # def search(self, index, query):
-    #     return self.es.search(
-    #         index=index,
-    #         query={
-    #             "multi_match": {
-    #                 "query": query,
-    #                 "fields": ["title", "abstract", "full_text"]
-    #             }
-    #         }
-    #     )
-    
-
-
-
 
     ###################################
     #######Creazione dell'indice#######
@@ -46,17 +32,25 @@ class Search:
 
     def create_index(self):
         self.es.indices.delete(index=self.index_name, ignore_unavailable=True)
-        self.es.indices.create(index=self.index_name)
+        self.es.indices.create(index=self.index_name, body = { 
+            
+            'mappings' : {
+                'properties': {
+                    'titolo' : {'type' : 'text'},
+                    'abstract' : {'type' : 'text'},
+                    'data' : {"type": "date", "format": "yyyy-MM-dd"},
+                    'autori' : {'type' : 'text'},
+                    'testo' : {'type' : 'text'}
+                }
+            }
+        })
+
 
     
     
     ###################################
     #Inserimento documenti nell'indice#
     ###################################
-
-    def insert_document(self, document):
-        return self.es.index(index=self.index_name, body=document)
-    
     
     def docs(self):
         conversion_start = time.time()
@@ -79,7 +73,7 @@ class Search:
                     abstract = tree.xpath("//div[@class='ltx_abstract']//text()")                 
                     data = tree.xpath("//div[@class='ltx_page_logo']/text()")                  
                     autori = self.estrazione_autori(tree)  
-                    testo = tree.xpath("//section[@class='ltx_section']/text()")
+                    testo = tree.xpath("//section[@class='ltx_section']//text()")
 
                     #pulizia    
                     titolo = " ".join(t.strip() for t in titolo if t.strip())      #-->rimozione spazi fra righe, tab e newline
@@ -89,6 +83,7 @@ class Search:
                     data = " ".join(d.strip() for d in data if d.strip())               
                     data = self.clean_date(data)
 
+                    testo = " ".join(t.strip() for t in testo if t.strip())
 
 
                     documents.append({
@@ -114,9 +109,10 @@ class Search:
         documents = self.docs()
 
         for document in documents:
-            print(document['_source']['data'], end="\n\n")
+            self.es.index(index=self.index_name, body=document['_source'])
+            print('Inserted successfully')
 
-    
+
 
 
     ####################
@@ -125,68 +121,98 @@ class Search:
 
     #pulizia data --> rimozione elementi indesiderati
     def clean_date(self, data):
-        # rimuovo parti indesiderate
         data = data.replace("Generated  on ", "").replace(" by", "").strip()
-        
-        # parsing
+
         dt = datetime.strptime(data, "%a %b %d %H:%M:%S %Y")
-        
-        # formato finale
-        formatted_date = dt.strftime("%Y/%m/%d")
-        
-        return formatted_date
+
+        # FORMATO CORRETTO PER ELASTICSEARCH
+        return dt.strftime("%Y-%m-%d")
+
             
 
         
 
     #estrazione autori
     def estrazione_autori(self, tree):
-        autori = tree.xpath("//span[@class='ltx_personname']/text() | //p[@id='p1.3']/text()")
-        autori = " ".join(a.strip() for a in autori if a.strip())
-        
-        # Rimuovi le virgole finali
-        autori = re.sub(r',$', '', autori, flags=re.MULTILINE)
+    
+        # 1. Prendo solo i personname (uno per autore quando possibile)
+        raw_autori = tree.xpath("//span[@class='ltx_personname']//text()")
 
-        # Rimuovi i tag del tipo \qualcosa (compresi eventuali numeri)
-        autori = re.sub(r'\\[a-zA-Z]+\d*', '', autori)
+        autori = []
 
-        # Rimuovi eventuali spazi extra
-        autori = re.sub(r'\s+', ' ', autori)
+        for a in raw_autori:
+            a = a.strip()
+            if not a:
+                continue
 
-        # Dividi per riga e ripulisci eventuali spazi all'inizio/fine
-        array_autori = [line.strip() for line in autori.split('\n') if line.strip()]
+            # 2. Rimuovi email
+            if '@' in a:
+                continue
 
-        return array_autori
+            # 3. Rimuovi comandi LaTeX tipo \authorref1
+            a = re.sub(r'\[a-zA-Z]+\d', '', a)
+
+            # 4. Rimuovi numeri
+            a = re.sub(r'\d+', '', a)
+
+            # 5. Rimuovi asterischi
+            a = a.replace('', '')
+
+            # 6. Normalizza spazi
+            a = re.sub(r'\s+', ' ', a).strip()
+            if not a:
+                continue
+
+            parts_comma = [p.strip() for p in a.split(',') if p.strip()]
+
+            for p in parts_comma:
+                # Rimuovi & iniziali
+                p = re.sub(r'^&+', '', p).strip()
+                if not p:
+                    continue
+
+                # AND all'inizio → elimina
+                if re.match(r'^(and)\b', p, flags=re.IGNORECASE):
+                    p = re.sub(r'^(and)\b\s*', '', p, flags=re.IGNORECASE)
+                    if p:
+                        autori.append(p)
+                    continue
+
+                # AND in mezzo → split
+                if re.search(r'\band\b', p, flags=re.IGNORECASE):
+                    parts_and = re.split(r'\band\b', p, flags=re.IGNORECASE)
+                    for pa in parts_and:
+                        pa = pa.strip()
+                        if pa:
+                            autori.append(pa)
+                else:
+                    autori.append(p)
+
+        # 8. Pulizia finale: solo lettere e spazi + eliminazione di "Apple" isolato
+        cleaned_autori = []
+        for a in autori:
+            # Rimuove tutto ciò che non è lettera (unicode) o spazio
+            a = re.sub(r'[^A-Za-zÀ-ÖØ-öø-ÿ\s]', '', a)
+            # Normalizza spazi
+            a = re.sub(r'\s+', ' ', a).strip()
+            if not a:
+                continue
+            # Elimina "Apple" isolato
+            if a.lower() == "apple":
+                continue
+            cleaned_autori.append(a)
+
+        return cleaned_autori
+    
 
 
 
+    ###################
+    #######Query#######
+    ###################
 
-
-
-    #authors: "ltx_title ltx_titledocument" --- "ltx_personname", "ltx_document ltx_authors_1line"--> in questo caso restituire il contenuto intero del nipote <p>, ltx_abstract,  
-
-
-
-    # *****TODO*****
-    # Xpath per data:
-    # //div[@class='ltx_page_logo']
-    # estrarre data
-
-    # Xpath per abstract:
-    # //div[@class='ltx_abstract']
-
-    # Xpath per titolo:
-    # //h1[@class='ltx_title ltx_title_document']
-    # !! togliere \n
-
-
-    # Xpath per autori:
-    # //span[@class='ltx_personname'] | //article[@class='ltx_document ltx_authors_1line']/div[1][@id='p1']/p[@id='p1.3']
-    # !! sanificare dai tag con '/' ; togliere numeri  ;  punteggiatura
-
-    # Xpath per testo:
-    # //section[@class='ltx_section']
-    # !! togliere comandi per caratteri speciali fatti con '{\comando}'
-
-
-
+    def search(self, **query_args):
+        return self.es.search(index=self.index_name, **query_args)
+    
+    def retrieve_document(self, id):
+        return self.es.get(index=self.index_name, id=id)

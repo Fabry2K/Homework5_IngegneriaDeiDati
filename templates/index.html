@@ -1,62 +1,82 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <form method="POST" action="{{ url_for('handle_search') }}">
-      <div class="mb-3">
-          <input type="text" class="form-control" name="query" id="query" placeholder="Enter your search query" value="{{ query }}" autofocus>
-      </div>
-    </form>
-    {% if results %}
-        <div class="row mb-3">
-            <div class="col-2 mt-2">
-                <p><a href="javascript:history.back(1)">← Back</a></p>
-                {% for agg in aggs %}
-                    <h6 class="mt-3">{{ agg }}</h6>
-                    {% for key, count in aggs[agg].items() %}
-                        <form method="POST">
-                            <input type="hidden" name="query" value="{{ agg|lower }}:{{key}} {{ query }}">
-                            <button type="submit" class="btn btn-link btn-sm"{% if aggs[agg]|length == 1 %} disabled{% endif %}>{{ key }} ({{ count }})</button>
-                        </form>
-                    {% endfor %}
-                {% endfor %}
-            </div>
-            <div class="col-10">
-                <div class="row mb-3">
-                    <div class="col-sm-auto my-auto">
-                        Showing results {{ from_ + 1 }}-{{ from_ + results|length }} out of {{ total }}.
-                    </div>
-                    {% if from_ > 0 %}
-                        <div class="col-sm-auto my-auto">
-                            <a href="javascript:history.back(1)" class="btn btn-primary">← Previous page</a>
-                        </div>
-                    {% endif %}
-                    {% if from_ + results|length < total %}
-                        <div class="col-sm-auto my-auto">
-                            <form method="POST">
-                                <input type="hidden" name="query" value="{{ query }}">
-                                <input type="hidden" name="from_" value="{{ from_ + results|length }}">
-                                <button type="submit" class="btn btn-primary">Next page →</button>
-                            </form>
-                        </div>
-                    {% endif %}
-                    <div class="col"></div>
-                </div>
-                {% for result in results %}
-                    <p>
-                        {{ from_ + loop.index }}. <b><a href="{{ url_for('get_document', id=result._id) }}">{{ result._source.name }}</a></b>
-                        <br>
-                        {{ result._source.summary }}
-                        <br>
-                        <small>
-                            Category: {{ result._source.category }}.
-                            Last updated: {{ result._source.updated_at | default(result._source.created_on) }}.
-                            {% if result._score %}<i>(Score: {{ result._score }})</i>{% endif %}
-                        </small>
-                    </p>
-                {% endfor %}
-            </div>
+  {% if not results and request.method != 'POST' %}
+    <!-- HOME PAGE -->
+    <div class="d-flex flex-column align-items-center justify-content-center" style="height: 80vh;">
+      <img src="{{ url_for('static', filename='elastic-logo.svg') }}" width="120" class="mb-3">
+      <h1 class="mb-4">Elasticsearch Tutorial</h1>
+
+      <form method="POST" action="{{ url_for('handle_search') }}" class="w-50">
+        <div class="input-group">
+          <input type="text" class="form-control form-control-lg"
+                 name="query" placeholder="Search documents..." autofocus>
+          <button type="submit" class="btn btn-primary btn-lg">Search</button>
         </div>
-    {% elif request.method == 'POST' %}
-        <p>No results found.</p>
-    {% endif %}
+      </form>
+    </div>
+
+  {% elif results %}
+    <!-- RESULTS PAGE -->
+    <div class="container mt-4" style="max-width: 900px;">
+
+      <div class="d-flex align-items-center mb-3">
+        <a href="{{ url_for('index') }}" class="text-decoration-none text-dark fs-4 fw-bold">
+          Elasticsearch Tutorial
+        </a>
+      </div>
+
+      <!-- Search bar -->
+      <form method="POST" class="mb-4">
+        <div class="input-group">
+          <input type="text" class="form-control" name="query"
+                 value="{{ query }}" placeholder="Search documents...">
+          <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+      </form>
+
+      <!-- Pagination -->
+      <div class="d-flex justify-content-center align-items-center mb-3 gap-3">
+        {% if from_ > 0 %}
+          <form method="POST">
+            <input type="hidden" name="query" value="{{ query }}">
+            <input type="hidden" name="from_" value="{{ from_ - results|length }}">
+            <button type="submit" class="btn btn-secondary">← Previous</button>
+          </form>
+        {% endif %}
+
+        <span>Showing results {{ from_ + 1 }}–{{ from_ + results|length }} out of {{ total }}</span>
+
+        {% if from_ + results|length < total %}
+          <form method="POST">
+            <input type="hidden" name="query" value="{{ query }}">
+            <input type="hidden" name="from_" value="{{ from_ + results|length }}">
+            <button type="submit" class="btn btn-secondary">Next →</button>
+          </form>
+        {% endif %}
+      </div>
+
+      <!-- Results -->
+      {% for result in results %}
+        <div class="mb-3 p-3 border rounded shadow-sm">
+          <h5>
+            <a href="{{ url_for('get_document', id=result._id) }}">
+              {{ result._source.titolo }}
+            </a>
+          </h5>
+
+          <p>{{ result._source.abstract[:200] }}...</p>
+
+          <small>
+            {% if result._score %}
+              <i>Score: {{ result._score }}</i>
+            {% endif %}
+          </small>
+        </div>
+      {% endfor %}
+    </div>
+
+  {% elif request.method == 'POST' %}
+    <p class="text-center">No results found.</p>
+  {% endif %}
 {% endblock %}

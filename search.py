@@ -98,7 +98,6 @@ class Search:
 
         for document in documents:
             self.es.index(index=self.index_name, body=document['_source'])
-            print('Inserted successfully')
 
     ####################
     # Funzioni ausiliarie #

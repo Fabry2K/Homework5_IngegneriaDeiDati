@@ -5,95 +5,74 @@
     <!-- HOME PAGE -->
     <div class="d-flex flex-column align-items-center justify-content-center" style="height: 80vh;">
       <h1 class="mb-4">Elasticsearch Tutorial</h1>
-      <form method="POST" action="{{ url_for('handle_search') }}" class="w-50">
+      <form method="POST" action="{{ url_for('handle_search') }}" class="search-bar" style="width: 100%; max-width: 600px;">
         <div class="input-group">
           <input type="text" class="form-control form-control-lg" name="query" id="query"
-                 placeholder="Enter your search query..." autofocus value="{{ query }}">
+                 placeholder="Enter your search query..." autofocus style="font-size: 1.25rem; padding: 0.75rem;">
           <button type="submit" class="btn btn-primary btn-lg">Search</button>
         </div>
       </form>
     </div>
 
   {% elif results %}
-    <!-- RESULTS PAGE -->
+    <!-- PAGINA RISULTATI -->
     <div class="container mt-4" style="max-width: 900px;">
-      <!-- Logo e barra ricerca -->
-      <div class="d-flex align-items-center mb-3">
-        <a href="{{ url_for('index') }}" class="d-flex align-items-center text-decoration-none text-dark">
-          <span class="fs-4 fw-bold">Elasticsearch Tutorial</span>
-        </a>
-      </div>
 
-      <form method="POST" action="{{ url_for('handle_search') }}" class="mb-4">
+      <!-- Barra di ricerca -->
+      <form method="POST" action="{{ url_for('handle_search') }}" class="mb-4 search-bar" style="width: 100%; max-width: 600px;">
         <div class="input-group">
           <input type="text" class="form-control" name="query" id="query"
-                 placeholder="Enter your search query..." value="{{ query }}">
+                 placeholder="Enter your search query..." value="{{ query }}" style="font-size: 1.25rem; padding: 0.75rem;">
           <button type="submit" class="btn btn-primary">Search</button>
         </div>
       </form>
 
-      <!-- Pagination info -->
+      <!-- Paginazione -->
       <div class="d-flex justify-content-center align-items-center mb-3 gap-3">
-        {% if from_ > 0 %}
+        {% if prev_from is not none and from_ > 0 %}
           <form method="POST">
             <input type="hidden" name="query" value="{{ query }}">
-            <input type="hidden" name="from_" value="{{ from_ - results|length }}">
+            <input type="hidden" name="from_" value="{{ prev_from }}">
             <button type="submit" class="btn btn-secondary">← Previous</button>
           </form>
         {% endif %}
+
         <span>Showing results {{ from_ + 1 }}–{{ from_ + results|length }} out of {{ total }}</span>
-        {% if from_ + results|length < total %}
+
+        {% if next_from is not none %}
           <form method="POST">
             <input type="hidden" name="query" value="{{ query }}">
-            <input type="hidden" name="from_" value="{{ from_ + results|length }}">
+            <input type="hidden" name="from_" value="{{ next_from }}">
             <button type="submit" class="btn btn-secondary">Next →</button>
           </form>
         {% endif %}
       </div>
 
-      <!-- Search results -->
+      <!-- Risultati -->
       {% for result in results %}
         <div class="mb-3 p-3 border rounded shadow-sm">
-          <!-- Title -->
-          <h5>
-            <a href="{{ url_for('get_document', id=result._id) }}">
-              {{ result._source.titolo }}
-            </a>
-          </h5>
-
-          <!-- Authors -->
-          <p class="mb-1">
-            <strong>Authors:</strong> {{ result._source.autori | join(', ') }}
+          <h5><a href="{{ url_for('get_document', id=result._id) }}">{{ result._source.titolo }}</a></h5>
+          <p>
+            <strong>Autori:</strong> {{ result._source.autori | join(', ') }}<br>
+            <strong>Data:</strong> {{ result._source.data }}<br>
+            <strong>Abstract:</strong>
+            {% set abstract_preview = result._source.abstract[:200] %}
+            {{ abstract_preview }}{% if result._source.abstract|length > 200 %}...{% endif %}
           </p>
-
-          <!-- Date -->
-          <p class="mb-1">
-            <strong>Date:</strong> {{ result._source.data }}
-          </p>
-
-          <!-- Abstract snippet -->
-          {% if result._source.abstract %}
-            <p class="mt-2 text-muted">
-              {{ result._source.abstract[:300] }}
-              {% if result._source.abstract|length > 300 %}...{% endif %}
-            </p>
-          {% endif %}
-
-          <!-- Score -->
           <small>
-            {% if result._score %}<i>(Score: {{ result._score }})</i>{% endif %}
+            {% if result._score %}<i>Score: {{ result._score }}</i>{% endif %}
           </small>
         </div>
       {% endfor %}
     </div>
 
   {% elif request.method == 'POST' %}
-    <!-- No results -->
+    <!-- Nessun risultato -->
     <div class="container mt-4" style="max-width: 900px;">
-      <form method="POST" action="{{ url_for('handle_search') }}" class="mb-4">
+      <form method="POST" action="{{ url_for('handle_search') }}" class="mb-4 search-bar" style="width: 100%; max-width: 600px;">
         <div class="input-group">
           <input type="text" class="form-control" name="query" id="query"
-                 placeholder="Enter your search query..." value="{{ query }}">
+                 placeholder="Enter your search query..." value="{{ query }}" style="font-size: 1.25rem; padding: 0.75rem;">
           <button type="submit" class="btn btn-primary">Search</button>
         </div>
       </form>

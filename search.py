@@ -60,7 +60,16 @@ class Search:
                     abstract = tree.xpath("//div[@class='ltx_abstract']//text()")                 
                     data = tree.xpath("//div[@class='ltx_page_logo']/text()")                  
                     autori = self.estrazione_autori(tree)  
-                    testo = tree.xpath("//section[@class='ltx_section']")[0].xpath('string(.)') if tree.xpath("//section[@class='ltx_section']") else ''
+
+                    # concatena tutte le sezioni in un unico testo HTML interpretabile
+                    sections = tree.xpath("//section[@class='ltx_section']")
+                    testo_blocks = []
+                    for sec in sections:
+                        # Rimuovi solo note, mantieni resto HTML
+                        for note in sec.xpath('.//span[contains(@class,"ltx_note")]'):
+                            note.getparent().remove(note)
+                        testo_blocks.append(html.tostring(sec, encoding='unicode', method='html').strip())
+                    testo = "\n".join(testo_blocks)
 
                     # Pulizia
                     titolo = " ".join(t.strip() for t in titolo if t.strip())
@@ -68,7 +77,6 @@ class Search:
                     abstract = self.clean_abstract(abstract)
                     data = " ".join(d.strip() for d in data if d.strip())               
                     data = self.clean_date(data)
-                    testo = testo.strip()
 
                     documents.append({
                         '_index': self.index_name,
@@ -84,6 +92,7 @@ class Search:
         conversion_end = time.time()
         print(f'Conversion Time: {conversion_end - conversion_start:.3f}s')
         return documents
+
 
     def insert_documents(self):
         index_start = time.time()

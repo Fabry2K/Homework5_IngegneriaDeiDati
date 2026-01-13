@@ -1,12 +1,11 @@
-import re
 from flask import Flask, render_template, request
-from main import main
 from search import Search
+from main import main
 
 app = Flask(__name__)
-
 main()
 search_client = Search()
+
 
 @app.get('/')
 def index():
@@ -26,39 +25,41 @@ def handle_search():
     from_ = request.form.get('from_', type=int, default=0)
 
     results = search_client.search(
-            query={
-                'bool': {
-                    'should' :[
-                        {
-                            'match_phrase' : {
-                                'titolo' : {            # --> greeter correspondence, greeter score
-                                    'query' : query,
-                                    'boost' : 10
-                                }
-                            }
-                        },
-                        {
-                            'match' : {
-                                'titolo' : {             # --> if title's tokens matche score = 7
-                                    'query' : query,
-                                    'boost' : 7,
-                                    'fuzziness': 'AUTO'
-                                }
-                            }
-                        },
-                        {
-                            'match' : {
-                                'abstract' : {           # --> if content's tokens mathch score = 5
-                                    'query' : query,
-                                    'boost' : 5,
-                                    'fuzziness': 'AUTO'
-                                }
+        query={
+            'bool': {
+                'should': [
+                    {
+                        'match_phrase': {
+                            'titolo': {
+                                'query': query,
+                                'boost': 10
                             }
                         }
-                    ]
-        
-                }
-            }, size=10, from_=from_
+                    },
+                    {
+                        'match': {
+                            'titolo': {
+                                'query': query,
+                                'boost': 7,
+                                'fuzziness': 'AUTO'
+                            }
+                        }
+                    },
+                    {
+                        'match': {
+                            'abstract': {
+                                'query': query,
+                                'boost': 5,
+                                'fuzziness': 'AUTO'
+                            }
+                        }
+                    }
+                ],
+                'minimum_should_match': 1
+            }
+        },
+        size=5,
+        from_=from_
     )
 
     return render_template(
@@ -74,9 +75,16 @@ def handle_search():
 def get_document(id):
     
     document = search_client.retrieve_document(id)
-    titolo = document['_source']['titolo']
-    abstract = document['_source']['abstract'].split('\n')
-    return render_template('document.html', titolo=titolo, abstract=abstract)
+    source = document['_source']
+
+    return render_template(
+        'document.html',
+        titolo=source.get('titolo', ''),
+        autori=", ".join(source.get('autori', [])),
+        data=source.get('data', ''),
+        abstract=source.get('abstract', ''),
+        testo=source.get('testo', '')
+    )
 
 
 if __name__ == '__main__':

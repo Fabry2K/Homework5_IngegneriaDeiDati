@@ -3,15 +3,28 @@
 {% block content %}
 <div class="container mt-4" style="max-width: 900px;">
 
-  <p><a href="javascript:history.back(1)" class="btn btn-primary mb-3">← Back</a></p>
+  <p>
+    <a href="javascript:history.back(1)" class="btn btn-primary">← Back</a>
+  </p>
 
-  <h2 class="mb-3">{{ titolo }}</h2>
+  <h2 class="mb-2">{{ titolo }}</h2>
 
-  <div class="p-3 border rounded shadow-sm">
-    {% for paragraph in abstract %}
-      <p>{{ paragraph }}</p>
-    {% endfor %}
-  </div>
+  <p class="mb-1">
+    <strong>Authors:</strong> {{ autori }}
+  </p>
 
+  <p class="mb-3">
+    <strong>Date:</strong> {{ data }}
+  </p>
+
+  <h5>Abstract</h5>
+  <p>{{ abstract }}</p>
+
+  <hr>
+
+  <h5>Full Text</h5>
+  <p style="white-space: pre-wrap;">
+    {{ testo }}
+  </p>
 </div>
 {% endblock %}

@@ -4,13 +4,11 @@
   {% if not results and request.method != 'POST' %}
     <!-- HOME PAGE -->
     <div class="d-flex flex-column align-items-center justify-content-center" style="height: 80vh;">
-      <img src="{{ url_for('static', filename='elastic-logo.svg') }}" width="120" class="mb-3">
       <h1 class="mb-4">Elasticsearch Tutorial</h1>
-
       <form method="POST" action="{{ url_for('handle_search') }}" class="w-50">
         <div class="input-group">
-          <input type="text" class="form-control form-control-lg"
-                 name="query" placeholder="Search documents..." autofocus>
+          <input type="text" class="form-control form-control-lg" name="query" id="query"
+                 placeholder="Enter your search query..." autofocus value="{{ query }}">
           <button type="submit" class="btn btn-primary btn-lg">Search</button>
         </div>
       </form>
@@ -19,23 +17,22 @@
   {% elif results %}
     <!-- RESULTS PAGE -->
     <div class="container mt-4" style="max-width: 900px;">
-
+      <!-- Logo e barra ricerca -->
       <div class="d-flex align-items-center mb-3">
-        <a href="{{ url_for('index') }}" class="text-decoration-none text-dark fs-4 fw-bold">
-          Elasticsearch Tutorial
+        <a href="{{ url_for('index') }}" class="d-flex align-items-center text-decoration-none text-dark">
+          <span class="fs-4 fw-bold">Elasticsearch Tutorial</span>
         </a>
       </div>
 
-      <!-- Search bar -->
-      <form method="POST" class="mb-4">
+      <form method="POST" action="{{ url_for('handle_search') }}" class="mb-4">
         <div class="input-group">
-          <input type="text" class="form-control" name="query"
-                 value="{{ query }}" placeholder="Search documents...">
+          <input type="text" class="form-control" name="query" id="query"
+                 placeholder="Enter your search query..." value="{{ query }}">
           <button type="submit" class="btn btn-primary">Search</button>
         </div>
       </form>
 
-      <!-- Pagination -->
+      <!-- Pagination info -->
       <div class="d-flex justify-content-center align-items-center mb-3 gap-3">
         {% if from_ > 0 %}
           <form method="POST">
@@ -44,9 +41,7 @@
             <button type="submit" class="btn btn-secondary">← Previous</button>
           </form>
         {% endif %}
-
         <span>Showing results {{ from_ + 1 }}–{{ from_ + results|length }} out of {{ total }}</span>
-
         {% if from_ + results|length < total %}
           <form method="POST">
             <input type="hidden" name="query" value="{{ query }}">
@@ -56,27 +51,53 @@
         {% endif %}
       </div>
 
-      <!-- Results -->
+      <!-- Search results -->
       {% for result in results %}
         <div class="mb-3 p-3 border rounded shadow-sm">
+          <!-- Title -->
           <h5>
             <a href="{{ url_for('get_document', id=result._id) }}">
               {{ result._source.titolo }}
             </a>
           </h5>
 
-          <p>{{ result._source.abstract[:200] }}...</p>
+          <!-- Authors -->
+          <p class="mb-1">
+            <strong>Authors:</strong> {{ result._source.autori | join(', ') }}
+          </p>
 
+          <!-- Date -->
+          <p class="mb-1">
+            <strong>Date:</strong> {{ result._source.data }}
+          </p>
+
+          <!-- Abstract snippet -->
+          {% if result._source.abstract %}
+            <p class="mt-2 text-muted">
+              {{ result._source.abstract[:300] }}
+              {% if result._source.abstract|length > 300 %}...{% endif %}
+            </p>
+          {% endif %}
+
+          <!-- Score -->
           <small>
-            {% if result._score %}
-              <i>Score: {{ result._score }}</i>
-            {% endif %}
+            {% if result._score %}<i>(Score: {{ result._score }})</i>{% endif %}
           </small>
         </div>
       {% endfor %}
     </div>
 
   {% elif request.method == 'POST' %}
-    <p class="text-center">No results found.</p>
+    <!-- No results -->
+    <div class="container mt-4" style="max-width: 900px;">
+      <form method="POST" action="{{ url_for('handle_search') }}" class="mb-4">
+        <div class="input-group">
+          <input type="text" class="form-control" name="query" id="query"
+                 placeholder="Enter your search query..." value="{{ query }}">
+          <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+      </form>
+      <p class="text-center">No results found.</p>
+    </div>
   {% endif %}
 {% endblock %}

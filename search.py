@@ -26,7 +26,16 @@ class Search:
     ###################################
     def create_index(self):
         self.es.indices.delete(index=self.index_name, ignore_unavailable=True)
-        self.es.indices.create(index=self.index_name, body={ 
+        self.es.indices.create(index=self.index_name, body={
+            # 'settings' : {
+            #     'analysis' : {
+            #         'analyzer' :{
+
+            #             ''
+            #         }
+            #     }
+            # },
+            
             'mappings': {
                 'properties': {
                     'titolo': {'type': 'text'},
@@ -81,7 +90,6 @@ class Search:
                     })
 
         conversion_end = time.time()
-        print(f'Conversion Time: {conversion_end - conversion_start:.3f}s')
         return documents
 
     def insert_documents(self):

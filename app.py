@@ -21,6 +21,8 @@ def index():
         from_=0,
         total=0,
         page_size=PAGE_SIZE,
+        prev_from=None,
+        next_from=None,
         es_ok=search_client.ping()
     )
 
@@ -66,7 +68,7 @@ def handle_search():
     paginated_results = filtered_results[start:end]
 
     # Indici per i bottoni Previous/Next
-    prev_from = start - PAGE_SIZE if start - PAGE_SIZE >= 0 else None
+    prev_from = start - PAGE_SIZE if start > 0 else None
     next_from = end if end < total_filtered else None
 
     return render_template(
@@ -87,19 +89,15 @@ def get_document(id):
     titolo = document['_source']['titolo']
     autori = document['_source']['autori']
     data = document['_source']['data']
-    abstract = document['_source']['abstract']  # rimane stringa
-    testo_raw = document['_source']['testo']
-
-    # Separiamo in paragrafi solo dove ci sono due o più \n consecutivi
-    paragrafi = [p.strip() for p in re.split(r'\n\s*\n', testo_raw) if p.strip()]
-
+    abstract = document['_source']['abstract'].split('\n')
+    testo = document['_source']['testo']  # lascialo come stringa HTML
     return render_template(
         'document.html',
         titolo=titolo,
         autori=autori,
         data=data,
         abstract=abstract,
-        testo=paragrafi
+        testo=testo  # renderizzato come HTML nel template
     )
 
 

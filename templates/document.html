@@ -9,14 +9,12 @@
   <p><b>Data:</b> {{ data }}</p>
 
   <h4>Abstract</h4>
-  {# Split abstract in paragrafi solo se ci sono interruzioni di riga #}
-  {% for paragraph in abstract.split('\n\n') %}
-    <p>{{ paragraph|trim }}</p>
+  {% for paragraph in abstract %}
+    <p>{{ paragraph }}</p>
   {% endfor %}
 
   <h4>Testo completo</h4>
-  {% for paragraph in testo %}
-    <p>{{ paragraph }}</p>
-  {% endfor %}
+  <!-- Interpreta il testo come HTML -->
+  <div>{{ testo|safe }}</div>
 </div>
 {% endblock %}

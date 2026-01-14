@@ -51,7 +51,7 @@ def handle_search():
     index_type = request.form.get('index_type', 'articles')
 
     # =========================
-    # SEARCH ARTICOLI (collega)
+    # SEARCH ARTICOLI
     # =========================
     if index_type == 'articles':
         query_text, query_dates = extract_dates_from_query(query)
@@ -107,7 +107,7 @@ def handle_search():
             )
 
     # =========================
-    # SEARCH FIGURE (TUO, INALTERATO)
+    # SEARCH FIGURE
     # =========================
     else:
         es_results = figure_client.search(

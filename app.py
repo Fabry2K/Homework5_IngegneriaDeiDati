@@ -46,11 +46,12 @@ def index():
 
 @app.post('/')
 def handle_search():
+    query = request.form.get('query', '')
     page_from = request.form.get('from_', type=int, default=0)
     index_type = request.form.get('index_type', 'articles')
 
     # =========================
-    # SEARCH ARTICOLI (collega)
+    # SEARCH ARTICOLI
     # =========================
     if index_type == 'articles':
         query_text, query_dates = extract_dates_from_query(query)
@@ -106,7 +107,7 @@ def handle_search():
             )
 
     # =========================
-    # SEARCH FIGURE (TUO, INALTERATO)
+    # SEARCH FIGURE
     # =========================
     else:
         es_results = figure_client.search(

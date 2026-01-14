@@ -106,7 +106,7 @@ class Search:
 
 
     ###################
-    ####### Query #######
+    ###### Query ######
     ###################
 
     def search(self, **query_args):

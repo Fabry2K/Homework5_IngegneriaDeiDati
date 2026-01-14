@@ -1,10 +1,16 @@
 from search import Search
+from figures_search import FigureSearch
 
 def main():
+    # Articoli
     s = Search()
-    #if not s.es.indices.exists(index=s.index_name):
     s.create_index()
     s.insert_documents()
+
+    # Figure
+    # fs = FigureSearch()
+    # fs.create_index()
+    # fs.insert_documents()
 
 if __name__ == "__main__":
     main()

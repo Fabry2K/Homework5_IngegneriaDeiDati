@@ -1,4 +1,5 @@
-import re
+from query_functions import extract_dates_from_query
+from query_functions import build_date_filter
 from flask import Flask, render_template, request
 from main import main
 from search import Search
@@ -9,7 +10,7 @@ main()
 search_client = Search()
 
 # Soglia minima di score per mostrare un risultato
-SCORE_THRESHOLD = 10
+SCORE_THRESHOLD = 0
 PAGE_SIZE = 10  # risultati per pagina
 
 @app.get('/')
@@ -29,34 +30,65 @@ def index():
 
 @app.post('/')
 def handle_search():
-    query = request.form.get('query', '')
     page_from = request.form.get('from_', type=int, default=0)
 
-    # Recupera abbastanza risultati da Elasticsearch
-    es_results = search_client.search(
+    query = request.form.get('query', '')
+    query_text, query_data = extract_dates_from_query(query)
+
+    filters = []
+    for date in query_data:
+        filters.append(build_date_filter(date))
+
+    if query_text:
+        # Recupera abbastanza risultati da Elasticsearch
+        es_results = search_client.search(
         query={
-            'bool': {
-                'should': [
+            "bool": {
+                "should": [
                     {
-                        'match_phrase': {
-                            'titolo': {'query': query, 'boost': 10}
+                        'match' : {
+                            'autori' : {
+                                'query' : query_text,
+                                'boost' : 6
+                            }
                         }
                     },
+
                     {
-                        'match': {
-                            'titolo': {'query': query, 'boost': 7, 'fuzziness': 'AUTO'}
+                    'match_phrase' : {
+                        'titolo' : {
+                            'query' : query_text,
+                            'boost' : 6
+                        }
+                    } 
+                    }, 
+
+                    {
+                        'match' : {
+                            'titolo' : {
+                                'query' : query_text,
+                                'boost' : 3
+                            }
                         }
                     },
-                    {
-                        'match': {
-                            'abstract': {'query': query, 'boost': 5, 'fuzziness': 'AUTO'}
-                        }
-                    }
-                ]
+                ],
+                'minimum_should_match' : 1,
+                'filter' : filters
             }
         },
-        size=1000  # prendi abbastanza risultati per filtrare
+        size=20
     )
+
+    else:
+
+        es_results = search_client.search(
+            query = {
+                'bool' : {
+                    'filter' : filters
+                }
+            }
+        )
+
 
     # Filtra per score
     filtered_results = [res for res in es_results['hits']['hits'] if res['_score'] >= SCORE_THRESHOLD]
@@ -81,7 +113,6 @@ def handle_search():
         prev_from=prev_from,
         next_from=next_from
     )
-
 
 @app.get('/document/<id>')
 def get_document(id):

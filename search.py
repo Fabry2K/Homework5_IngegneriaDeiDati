@@ -1,13 +1,15 @@
-import json
 from pprint import pprint
-from datetime import datetime
 import os
 import time
-import re
 
 from lxml import html
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
+
+from auxiliar_indexing_functions import clean_date
+from auxiliar_indexing_functions import clean_abstract
+from auxiliar_indexing_functions import estrazione_autori
+
 
 load_dotenv()
 
@@ -28,6 +30,7 @@ class Search:
     def create_index(self):
         self.es.indices.delete(index=self.index_name, ignore_unavailable=True)
         self.es.indices.create(index=self.index_name, body={
+
             'mappings': {
                 'properties': {
                     'titolo': {'type': 'text'},
@@ -59,7 +62,7 @@ class Search:
                     titolo = tree.xpath("//h1[@class='ltx_title ltx_title_document']/text()")    
                     abstract = tree.xpath("//div[@class='ltx_abstract']//text()")                 
                     data = tree.xpath("//div[@class='ltx_page_logo']/text()")                  
-                    autori = self.estrazione_autori(tree)  
+                    autori = estrazione_autori(tree)  
 
                     # concatena tutte le sezioni in un unico testo HTML interpretabile
                     sections = tree.xpath("//section[@class='ltx_section']")
@@ -74,9 +77,9 @@ class Search:
                     # Pulizia
                     titolo = " ".join(t.strip() for t in titolo if t.strip())
                     abstract = " ".join(a.strip() for a in abstract if a.strip())
-                    abstract = self.clean_abstract(abstract)
+                    abstract = clean_abstract(abstract)
                     data = " ".join(d.strip() for d in data if d.strip())               
-                    data = self.clean_date(data)
+                    data = clean_date(data)
 
                     documents.append({
                         '_index': self.index_name,
@@ -101,55 +104,6 @@ class Search:
             self.es.index(index=self.index_name, body=document['_source'])
         print('Inserted successfully')
 
-    ####################
-    # Funzioni ausiliarie #
-    ####################
-
-    def clean_date(self, data):
-        data = data.replace("Generated  on ", "").replace(" by", "").strip()
-        dt = datetime.strptime(data, "%a %b %d %H:%M:%S %Y")
-        return dt.strftime("%Y-%m-%d")
-
-    def estrazione_autori(self, tree):
-        raw_autori = tree.xpath("//span[@class='ltx_personname']//text()")
-        autori = []
-        for a in raw_autori:
-            a = a.strip()
-            if not a or '@' in a:
-                continue
-            a = re.sub(r'\[a-zA-Z]+\d', '', a)
-            a = re.sub(r'\d+', '', a)
-            a = re.sub(r'\s+', ' ', a).strip()
-            if not a:
-                continue
-            parts_comma = [p.strip() for p in a.split(',') if p.strip()]
-            for p in parts_comma:
-                p = re.sub(r'^&+', '', p).strip()
-                if re.match(r'^(and)\b', p, flags=re.IGNORECASE):
-                    p = re.sub(r'^(and)\b\s*', '', p, flags=re.IGNORECASE)
-                    if p:
-                        autori.append(p)
-                    continue
-                if re.search(r'\band\b', p, flags=re.IGNORECASE):
-                    parts_and = re.split(r'\band\b', p, flags=re.IGNORECASE)
-                    for pa in parts_and:
-                        pa = pa.strip()
-                        if pa:
-                            autori.append(pa)
-                else:
-                    autori.append(p)
-        cleaned_autori = []
-        for a in autori:
-            a = re.sub(r'[^A-Za-zÀ-ÖØ-öø-ÿ\s]', '', a)
-            a = re.sub(r'\s+', ' ', a).strip()
-            if not a or a.lower() == "apple":
-                continue
-            cleaned_autori.append(a)
-        return cleaned_autori
-
-    def clean_abstract(self, abstract):
-        # Rimuove la parola "Abstract" all'inizio
-        return re.sub(r'^\s*Abstract\s*', '', abstract, flags=re.IGNORECASE)
 
     ###################
     ####### Query #######

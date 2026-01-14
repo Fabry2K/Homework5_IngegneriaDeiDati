@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 900px;">
+  <p><a href="javascript:history.back(1)" class="btn btn-primary">← Back</a></p>
+
+  <h4>Figure</h4>
+  <p><b>URL:</b> <a href="{{ url }}" target="_blank">{{ url }}</a></p>
+  <p><b>Caption:</b> {{ caption }}</p>
+
+  <h5>Citing Paragraphs</h5>
+  {% if citing_paragraphs %}
+    {% for p in citing_paragraphs %}
+      <p>{{ p }}</p>
+    {% endfor %}
+  {% else %}
+    <p>No citing paragraphs.</p>
+  {% endif %}
+
+  <h5>Semantic Context</h5>
+  {% if semantic_context %}
+    {% for p in semantic_context %}
+      <p>{{ p }}</p>
+    {% endfor %}
+  {% else %}
+    <p>No semantic context paragraphs.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,14 +1,16 @@
 import os
 from lxml import html
+from urllib.parse import urljoin
 
 # =========================
 # CONFIGURAZIONE
 # =========================
 
 HTML_DIR = "arxiv_html_papers"
+BASE_URL = "https://arxiv.org/html"  # base per combinare con il nome del file
 
-# 👉 CAMBIA QUESTO XPATH
-XPATH_EXPR = "//span[@class='ltx_personname'] | //p[@id='p1.3']"
+# XPath corretto: prende l'intero tag <figure>
+XPATH_EXPR = "//figure"
 
 # =========================
 # LOGICA
@@ -50,11 +52,26 @@ def main():
             no_match_count += 1
             continue
 
-        for i, r in enumerate(results, 1):
-            if hasattr(r, "text_content"):
-                print(f"[{i}] {r.text_content().strip()}")
+        # Base URL per le immagini di questo articolo
+        file_base = filename.replace(".html", "")
+        article_base_url = f"{BASE_URL}/{file_base}/"
+
+        for i, fig in enumerate(results, 1):
+            # Estrazione src dell'immagine
+            img_src_list = fig.xpath(".//img/@src")
+            if img_src_list:
+                relative_url = img_src_list[0].strip()
+                img_src = urljoin(article_base_url, relative_url)  # URL completo
             else:
-                print(f"[{i}] {str(r).strip()}")
+                img_src = "None"
+
+            # Estrazione caption
+            caption_list = fig.xpath(".//figcaption//text()")
+            caption = " ".join(c.strip() for c in caption_list if c.strip())
+
+            print(f"\n[{i}] FIGURE")
+            print(f"Image URL: {img_src}")
+            print(f"Caption: {caption if caption else 'None'}")
 
     # =========================
     # RIEPILOGO FINALE

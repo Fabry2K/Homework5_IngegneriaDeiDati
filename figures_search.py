@@ -10,7 +10,6 @@ load_dotenv()
 
 class FigureSearch:
     def __init__(self):
-        # Connessione LEGACY – NON TOCCATA
         self.es = Elasticsearch(
             os.getenv('ELASTIC_URL', 'http://localhost:9200'), verify_certs=False
         )

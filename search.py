@@ -55,8 +55,7 @@ class Search:
             if file.endswith('.html'):
                 full_path = os.path.join(textfiles_path, file)
                 with open(full_path, 'r', encoding='utf-8') as f:
-                    html_content = f.read()
-                    tree = html.fromstring(html_content)
+                    tree = html.fromstring(f.read())
 
                     # XPath
                     titolo = tree.xpath("//h1[@class='ltx_title ltx_title_document']/text()")    
@@ -114,3 +113,9 @@ class Search:
 
     def retrieve_document(self, id):
         return self.es.get(index=self.index_name, id=id)
+    
+
+
+    ####TODO####
+
+    ## figure class="ltx_table"

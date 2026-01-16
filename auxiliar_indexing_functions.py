@@ -1,4 +1,5 @@
 from datetime import datetime
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 import re
 
 def clean_date(data):
@@ -46,3 +47,23 @@ def estrazione_autori(tree):
 def clean_abstract(abstract):
     # Rimuove la parola "Abstract" all'inizio
     return re.sub(r'^\s*Abstract\s*', '', abstract, flags=re.IGNORECASE)
+
+
+
+
+
+####################
+######tabelle#######
+####################
+def estrazione_context_paragraphs(tree, keywords):
+
+    STOP_WORDS = set(ENGLISH_STOP_WORDS)
+
+    paragraphs = tree.xpath("//p//text()")
+    paragraphs = [" ".join(p.strip().split()) for p in paragraphs if p.strip()]
+
+    #case-insensitive
+    keywords = {k.lower() for k in keywords if k not in STOP_WORDS}
+    context_paragraphs = [p for p in paragraphs if any(k in p.lower() for k in keywords)]
+
+    return context_paragraphs

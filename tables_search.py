@@ -1,6 +1,8 @@
 import os
 import time
 import re
+
+from auxiliar_indexing_functions import estrazione_context_paragraphs
 from lxml import html
 from urllib.parse import urljoin
 from elasticsearch import Elasticsearch
@@ -55,16 +57,42 @@ class TablesSearch:
             with open(full_path, 'r', encoding='utf-8') as f:
                 tree = html.fromstring(f.read())
 
-                tables = tree.xpath("//figure[@class='ltx_table']")
-                paper_id = tree.xpath("//base/@href")[0].strip("/").split("/")[-1]
-                table_id = tree.xpath("//figure[@class='ltx_table']/@id")[0]
-                caption = tree.xpath("//figure[@class='ltx_table']/figcaption//text()")
-                #body = tree.xpath("//figure[@class='ltx_table]/tbody")
+                tables = tree.xpath("//figure[contains(@class='ltx_table')]")
 
-                for tab in tables:
+                #Id paper-univoco
+                paper_id = tree.xpath("//base/@href")[0].strip("/").split("/")[-1]
+
+                for t in tables:
+
+                    table_id = t.get("id", "NO_ID")
+
+                    caption = t.xpath("./figcaption//text()")
+                    caption = " ".join(c.strip() for c in caption if c.strip())
+                    
+                    keywords = set(caption.split())
+              
+                    body_rows = t.xpath(".//tr")
+                    body = []
+
+                    for row in body_rows:
+                        column = row.xpath(".//td//text()[not(ancestor::annotation)] | .//th//text()[not(ancestor::annotation)]")
+                        column = " ".join(c.strip() for c in column if c.strip())
+                        if column:
+                            body.append(column)
+
+                        keywords.update(row.split())
+                    
+
+                    context_paragraphs = estrazione_context_paragraphs(tree, keywords)
+                    
                     documents.append({
                         '_index': self.index_name,
-                        '_source': tab
+                        '_source': {
+                            'paper_id' : paper_id,
+                            'table_id' : table_id,
+                            'caption' : caption,
+                            'body' : body
+                        }
                     })
 
         conversion_end = time.time()

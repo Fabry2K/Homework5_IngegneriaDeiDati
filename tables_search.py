@@ -91,7 +91,8 @@ class TablesSearch:
                             'paper_id' : paper_id,
                             'table_id' : table_id,
                             'caption' : caption,
-                            'body' : body
+                            'body' : body,
+                            'context_paragraphs' : context_paragraphs
                         }
                     })
 

@@ -58,12 +58,54 @@ def clean_abstract(abstract):
 def estrazione_context_paragraphs(tree, keywords):
 
     STOP_WORDS = set(ENGLISH_STOP_WORDS)
+    context_paragraphs = []
 
-    paragraphs = tree.xpath("//p//text()")
-    paragraphs = [" ".join(p.strip().split()) for p in paragraphs if p.strip()]
+    sections = tree.xpath("//section[@class='ltx_section']")
+    keywords = {k.lower() for k in keywords if k.lower() not in STOP_WORDS}
 
-    #case-insensitive
-    keywords = {k.lower() for k in keywords if k not in STOP_WORDS}
-    context_paragraphs = [p for p in paragraphs if any(k in p.lower() for k in keywords)]
+    #fisso un minimo di match per evitare falsi positivi
+    min_matches = max(1, len(keywords) // 2)
+
+    for s in sections:
+        title = " ".join(s.xpath("./*[starts-with(name(), 'h')]//text()")).strip()
+        paragraph = " ".join(s.xpath(".//text()")).lower()
+
+        #tokenizzo le parole nel paragrafo (eliminando così i duplicati)
+        tokens = set(re.findall(r"\b[a-zA-Z0-9\-]+\b", paragraph))
+
+        matched = keywords & tokens
+        
+        if len(matched) >= min_matches:
+            context_paragraphs.append(title)
+
+    return context_paragraphs
+
+
+
+####################
+######tabelle#######
+####################
+def estrazione_mantions(tree, keywords):
+
+    STOP_WORDS = set(ENGLISH_STOP_WORDS)
+    context_paragraphs = []
+
+    sections = tree.xpath("//section[@class='ltx_section']")
+    keywords = {k.lower() for k in keywords if k.lower() not in STOP_WORDS}
+
+    #fisso un minimo di match per evitare falsi positivi
+    min_matches = max(1, len(keywords) // 2)
+
+    for s in sections:
+        title = " ".join(s.xpath("./*[starts-with(name(), 'h')]//text()")).strip()
+        paragraph = " ".join(s.xpath(".//text()")).lower()
+
+        #tokenizzo le parole nel paragrafo (eliminando così i duplicati)
+        tokens = set(re.findall(r"\b[a-zA-Z0-9\-]+\b", paragraph))
+
+        matched = keywords & tokens
+        
+        if len(matched) >= min_matches:
+            context_paragraphs.append(title)
 
     return context_paragraphs

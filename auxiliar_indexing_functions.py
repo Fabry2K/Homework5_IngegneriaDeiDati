@@ -120,7 +120,7 @@ def estrazione_context_paragraphs(tree, keywords):
 ####################
 ######tabelle#######
 ####################
-def estrazione_mantions(tree, keywords):
+def estrazione_mentions(tree, keywords):
 
     STOP_WORDS = set(ENGLISH_STOP_WORDS)
     context_paragraphs = []

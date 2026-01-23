@@ -90,9 +90,14 @@ class FigureSearch:
         paragraphs = [p for p in tree.xpath("//p") if p.text_content().strip()]
 
         for fig in figure_nodes:
-            # Caption
+            # Rimuovi nodi annidati contenenti "refer to caption" (case-insensitive)
+            for node in fig.xpath(".//figcaption//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'refer to caption')]"):
+                node.getparent().remove(node)
+
+            # Estrai caption pulita
             caption_list = fig.xpath(".//figcaption//text()")
-            caption = " ".join(c.strip() for c in caption_list if c.strip())
+            caption_list = [c.strip() for c in caption_list if c.strip()]
+            caption = " ".join(caption_list)
             if not caption:
                 continue
 

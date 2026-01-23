@@ -78,8 +78,8 @@ class FigureSearch:
         documents = self.docs()
         for doc in documents:
             fig = doc['_source']
-            # ID deterministico: una sola entry per figura
-            doc_id = f"{fig['paper_id']}_fig{fig['figure_id']}"
+            # ID deterministico: paper_id + nome file immagine
+            doc_id = f"{fig['paper_id']}_{os.path.basename(fig['url'])}"
             self.es.index(index=self.index_name, id=doc_id, body=fig)
         print('Figures indexed successfully')
 
@@ -113,32 +113,30 @@ class FigureSearch:
             caption_tokens = fig.xpath(".//figcaption//text()")
             caption = " ".join(t.strip() for t in caption_tokens if t.strip())
 
-            # ❌ Scarta le tabelle
-            if re.match(r'^\s*table\b', caption, re.IGNORECASE):
-                print("SCARTATA TABELLA:", caption[:80])
+            # ❌ Scarta le tabelle in modo robusto
+            caption_norm = re.sub(r'\s+', ' ', caption.strip())
+            if re.match(r'^table\b', caption_norm, re.IGNORECASE):
+                print("SCARTATA TABELLA:", caption_norm[:80])
                 continue
 
-            # Estrai ID figura
+            # Estrai ID figura (usato solo per mentions)
             figure_id = self.extract_figure_id(caption)
-            if not figure_id:
-                continue
 
-            # Paragrafi che citano la figura (fig. X)
-            fig_pattern = re.compile(
-                rf'\b(fig\.?|figure)\s*{figure_id}\b',
-                re.IGNORECASE
-            )
-            mentions = [p for p in paragraphs if fig_pattern.search(p)]
+            # Mentions: paragrafi che citano la figura
+            mentions = []
+            if figure_id:
+                fig_pattern = re.compile(
+                    rf'\b(fig\.?|figure)\s*{figure_id}\b',
+                    re.IGNORECASE
+                )
+                mentions = [p for p in paragraphs if fig_pattern.search(p)]
 
-            # Contesto semantico basato su soglia minima di token significativi
+            # Contesto semantico: paragrafi con soglia minima di token significativi
             caption_terms = self.extract_informative_terms(caption)
-            semantic_context = []
-
-            for p in paragraphs:
-                if p in mentions:
-                    continue
-                if self.paragraph_matches_caption(p, caption_terms):
-                    semantic_context.append(p)
+            semantic_context = [
+                p for p in paragraphs
+                if p not in mentions and self.paragraph_matches_caption(p, caption_terms)
+            ]
 
             figures_data.append({
                 'url': url,
@@ -182,10 +180,6 @@ class FigureSearch:
         return [t for t in tokens if t not in STOPWORDS]
 
     def paragraph_matches_caption(self, paragraph, caption_terms):
-        """
-        Restituisce True se il paragrafo contiene un numero sufficiente
-        di token significativi della caption.
-        """
         if not caption_terms:
             return False
 

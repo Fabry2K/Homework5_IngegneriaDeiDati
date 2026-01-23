@@ -12,8 +12,7 @@ load_dotenv()
 class FigureSearch:
     def __init__(self):
         self.es = Elasticsearch(
-            os.getenv('ELASTIC_URL', 'http://localhost:9200'),
-            verify_certs=False
+            os.getenv('ELASTIC_URL', 'http://localhost:9200'), verify_certs=False
         )
         self.index_name = 'hwk5_figures'
         print('Connected to Elasticsearch (Figures)!')
@@ -27,21 +26,19 @@ class FigureSearch:
 
     def create_index(self):
         self.es.indices.delete(index=self.index_name, ignore_unavailable=True)
-        self.es.indices.create(
-            index=self.index_name,
-            body={
-                'mappings': {
-                    'properties': {
-                        'url': {'type': 'keyword'},
-                        'paper_id': {'type': 'keyword'},
-                        'figure_id': {'type': 'keyword'},
-                        'caption': {'type': 'text'},
-                        'mentions': {'type': 'text'},
-                        'semantic_context': {'type': 'text'}
-                    }
+        self.es.indices.create(index=self.index_name, body={
+            'mappings': {
+                'properties': {
+                    'url': {'type': 'keyword'},
+                    'caption': {'type': 'text'},
+                    'caption_html': {'type': 'text'},
+                    'citing_paragraphs': {'type': 'text'},
+                    'citing_paragraphs_html': {'type': 'text'},
+                    'semantic_context': {'type': 'text'},
+                    'semantic_context_html': {'type': 'text'}
                 }
             }
-        )
+        })
 
     ############################
     #### Indicizzazione #######
@@ -52,17 +49,14 @@ class FigureSearch:
         documents = []
 
         html_path = os.path.join('.', 'arxiv_html_papers')
-
         for file in os.listdir(html_path):
             if not file.endswith('.html'):
                 continue
 
-            paper_id = os.path.splitext(file)[0]
             full_path = os.path.join(html_path, file)
-
             with open(full_path, 'r', encoding='utf-8') as f:
                 tree = html.fromstring(f.read())
-                figures = self.extract_figures(tree, paper_id)
+                figures = self.extract_figures(tree, full_path)
 
                 for fig in figures:
                     documents.append({
@@ -77,89 +71,84 @@ class FigureSearch:
     def insert_documents(self):
         documents = self.docs()
         for doc in documents:
-            fig = doc['_source']
-            # ID deterministico: paper_id + nome file immagine
-            doc_id = f"{fig['paper_id']}_{os.path.basename(fig['url'])}"
-            self.es.index(index=self.index_name, id=doc_id, body=fig)
+            self.es.index(index=self.index_name, body=doc['_source'])
         print('Figures indexed successfully')
 
     ########################################
-    #### Estrazione figure #################
+    #### Estrazione figure (LOGICA) #######
     ########################################
 
-    def extract_figures(self, tree, paper_id):
+    def extract_figures(self, tree, html_file):
         figures_data = []
 
         figure_nodes = tree.xpath("//figure")
-        article_base_url = f'https://arxiv.org/html/{paper_id}/'
 
-        paragraphs = [
-            p.text_content().strip()
-            for p in tree.xpath("//p")
-            if p.text_content().strip()
-        ]
+        html_filename = os.path.basename(html_file)
+        article_name = os.path.splitext(html_filename)[0]
+        article_base_url = f'https://arxiv.org/html/{article_name}/'
+
+        paragraphs = [p for p in tree.xpath("//p") if p.text_content().strip()]
 
         for fig in figure_nodes:
+            # Caption
+            caption_list = fig.xpath(".//figcaption//text()")
+            caption = " ".join(c.strip() for c in caption_list if c.strip())
+            if not caption:
+                continue
+
+            # Escludi tabelle e algoritmi
+            if re.match(r'^(TABLE|Table|ALGORITHM|Algorithm)\b', caption):
+                continue
 
             # URL immagine
-            img_src = fig.xpath(".//img/@src")
-            if not img_src:
-                continue
+            relative_url_list = fig.xpath(".//img/@src")
+            relative_url = relative_url_list[0].strip() if relative_url_list else None
+            url = urljoin(article_base_url, relative_url) if relative_url else None
 
-            relative_url = img_src[0].strip()
-            url = urljoin(article_base_url, relative_url)
+            # Estrai numero figura dalla caption (se presente)
+            figure_number = None
+            m = re.search(r'Figure\s*(\d+)', caption, re.I)
+            if m:
+                figure_number = m.group(1)
 
-            # Caption
-            caption_tokens = fig.xpath(".//figcaption//text()")
-            caption = " ".join(t.strip() for t in caption_tokens if t.strip())
-
-            # ❌ Scarta le tabelle in modo robusto
-            caption_norm = re.sub(r'\s+', ' ', caption.strip())
-            if re.match(r'^table\b', caption_norm, re.IGNORECASE):
-                print("SCARTATA TABELLA:", caption_norm[:80])
-                continue
-
-            # Estrai ID figura (usato solo per mentions)
-            figure_id = self.extract_figure_id(caption)
-
-            # Mentions: paragrafi che citano la figura
-            mentions = []
-            if figure_id:
-                fig_pattern = re.compile(
-                    rf'\b(fig\.?|figure)\s*{figure_id}\b',
-                    re.IGNORECASE
-                )
-                mentions = [p for p in paragraphs if fig_pattern.search(p)]
-
-            # Contesto semantico: paragrafi con soglia minima di token significativi
+            # Token informativi della caption
             caption_terms = self.extract_informative_terms(caption)
-            semantic_context = [
-                p for p in paragraphs
-                if p not in mentions and self.paragraph_matches_caption(p, caption_terms)
-            ]
+            min_matches = max(1, len(caption_terms) // 2)
 
+            citing_paragraphs = []
+            semantic_context = []
+
+            for p in paragraphs:
+                p_text = p.text_content().strip()
+
+                # Paragrafi che citano la figura
+                if ((relative_url and relative_url in p_text) or
+                    (figure_number and f'Figure {figure_number}' in p_text) or
+                    (figure_number and f'Fig. {figure_number}' in p_text)):
+                    citing_paragraphs.append(p_text)
+                    continue  # non considerarlo per semantic_context
+
+                # Paragrafi semanticamente correlati
+                matches = sum(1 for t in caption_terms if t in p_text.lower())
+                if matches >= min_matches:
+                    semantic_context.append(p_text)
+
+            # Salva anche versione HTML
             figures_data.append({
                 'url': url,
-                'paper_id': paper_id,
-                'figure_id': figure_id,
                 'caption': caption,
-                'mentions': mentions,
-                'semantic_context': semantic_context
+                'caption_html': html.tostring(fig, encoding='unicode', method='html'),
+                'citing_paragraphs': citing_paragraphs,
+                'citing_paragraphs_html': [html.tostring(p, encoding='unicode', method='html') for p in paragraphs if p.text_content().strip() in citing_paragraphs],
+                'semantic_context': semantic_context,
+                'semantic_context_html': [html.tostring(p, encoding='unicode', method='html') for p in paragraphs if p.text_content().strip() in semantic_context]
             })
 
         return figures_data
 
     ########################################
-    ###### Utility #########################
+    ###### Studio del contesto #############
     ########################################
-
-    def extract_figure_id(self, caption):
-        match = re.search(
-            r'\b(fig\.?|figure)\s*(\d+)',
-            caption,
-            re.IGNORECASE
-        )
-        return match.group(2) if match else None
 
     def extract_informative_terms(self, caption):
         BASIC_STOPWORDS = {
@@ -178,18 +167,6 @@ class FigureSearch:
 
         tokens = re.findall(r'\b[a-zA-Z]{3,}\b', caption.lower())
         return [t for t in tokens if t not in STOPWORDS]
-
-    def paragraph_matches_caption(self, paragraph, caption_terms):
-        if not caption_terms:
-            return False
-
-        paragraph_tokens = set(re.findall(r'\b[a-zA-Z]{3,}\b', paragraph.lower()))
-        match_count = len(paragraph_tokens & set(caption_terms))
-
-        # Soglia minima: metà dei token significativi
-        min_matches = max(1, len(caption_terms) // 2)
-
-        return match_count >= min_matches
 
     ############################
     #### Query ################

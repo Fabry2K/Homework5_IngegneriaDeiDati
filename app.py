@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 search_client = Search()
 figure_client = FigureSearch()
-# NOTA: NON inseriamo documenti qui, app.py serve solo per leggere
+# NOTA: non inseriamo documenti qui, app.py serve solo per leggere
 
 SCORE_THRESHOLD = 0
 PAGE_SIZE = 10
@@ -52,7 +52,6 @@ def handle_search():
     # =========================
     if index_type == 'articles':
         query_text, query_dates = extract_dates_from_query(query)
-
         filters = [build_date_filter(date) for date in query_dates]
 
         if query_text:
@@ -86,7 +85,7 @@ def handle_search():
                     "should": [
                         {"match_phrase": {"caption": {"query": query, "boost": 10}}},
                         {"match": {"caption": {"query": query, "boost": 7, "fuzziness": "AUTO"}}},
-                        {"match": {"mentions": {"query": query, "boost": 5}}},
+                        {"match": {"citing_paragraphs": {"query": query, "boost": 5}}},
                         {"match": {"semantic_context": {"query": query, "boost": 5}}}
                     ]
                 }
@@ -134,7 +133,7 @@ def get_document(id):
         autori=document['_source']['autori'],
         data=document['_source']['data'],
         abstract=document['_source']['abstract'].split('\n'),
-        testo=document['_source']['testo']
+        testo=document['_source']['testo']  # già HTML-safe nell'indice
     )
 
 # =========================
@@ -151,9 +150,9 @@ def get_figure(id):
     return render_template(
         'figure.html',
         url=document['_source']['url'],
-        caption=document['_source']['caption'],
-        citing_paragraphs=document['_source'].get('mentions', []),
-        semantic_context=document['_source'].get('semantic_context', [])
+        caption_html=document['_source'].get('caption_html', ''),
+        citing_paragraphs_html=document['_source'].get('citing_paragraphs_html', []),
+        semantic_context_html=document['_source'].get('semantic_context_html', [])
     )
 
 # =========================

@@ -34,7 +34,7 @@ class TablesSearch:
                     'table_id': {'type': 'text'},
                     'caption': {'type': 'text'},
                     'body': {'type': 'text'},
-                    'mentionts' : {'type' : 'text'},
+                    'mentions' : {'type' : 'text'},
                     'context_paragraph' : {'type' : 'text'}
                 }
             }

@@ -117,30 +117,42 @@ def estrazione_context_paragraphs(tree, keywords):
 
 
 
-####################
-######tabelle#######
-####################
-def estrazione_mentions(tree, keywords):
+#funzione che estrae, per ogni tabella, la lista di paragrafi che la menzionano
+def estrazione_mentions(tree, table_id):
 
-    STOP_WORDS = set(ENGLISH_STOP_WORDS)
-    context_paragraphs = []
+    mentions_paragraphs = []
 
-    sections = tree.xpath("//section[@class='ltx_section']")
-    keywords = {k.lower() for k in keywords if k.lower() not in STOP_WORDS}
+    section = tree.xpath("//section[@class='ltx_section']")
+    appendix = tree.xpath("//section[@class='ltx_appendix']")
 
-    #fisso un minimo di match per evitare falsi positivi
-    min_matches = max(1, len(keywords) // 2)
+    for s in section:
 
-    for s in sections:
-        title = " ".join(s.xpath("./*[starts-with(name(), 'h')]//text()")).strip()
-        paragraph = " ".join(s.xpath(".//text()")).lower()
-
-        #tokenizzo le parole nel paragrafo (eliminando così i duplicati)
-        tokens = set(re.findall(r"\b[a-zA-Z0-9\-]+\b", paragraph))
-
-        matched = keywords & tokens
+        #prima analisi della sezione
+        section_title = " ".join(s.xpath("./*[starts-with(name(), 'h')]//text()")).strip()
+        mentions = s.xpath(f"./*[not(self::section)]//p[.//a[contains(@href, '#{table_id}')]]")
         
-        if len(matched) >= min_matches:
-            context_paragraphs.append(title)
+        if mentions:
+            mentions_paragraphs.append(section_title)
+        
+       
+        #ora si analizzano i paragrafi di sezione (se ci sono)
+        paragraphs = s.xpath("./section")
 
-    return context_paragraphs
+        if paragraphs:
+            for p in paragraphs:
+                paragraph_title = " ".join(p.xpath("./*[starts-with(name(), 'h')]//text()")).strip()
+                mentions = p.xpath(f".//p[.//a[contains(@href, '#{table_id}')]]")
+
+                if mentions:
+                    mentions_paragraphs.append(paragraph_title)
+        
+    if appendix:
+        for a in appendix:
+            app_title = " ".join(a.xpath("./*[starts-with(name(), 'h')][1]//text()")).strip()
+            mentions = a.xpath(f".//p[.//a[contains(@href, '#{table_id}')]]")
+
+            if mentions:
+                mentions_paragraphs.append(app_title)
+
+
+    return mentions_paragraphs

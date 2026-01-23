@@ -3,6 +3,7 @@ import time
 import re
 
 from auxiliar_indexing_functions import estrazione_context_paragraphs
+from auxiliar_indexing_functions import estrazione_mentions
 from lxml import html
 from urllib.parse import urljoin
 from elasticsearch import Elasticsearch
@@ -84,6 +85,7 @@ class TablesSearch:
                     
 
                     context_paragraphs = estrazione_context_paragraphs(tree, keywords)
+                    mentions = estrazione_mentions(tree, table_id)
                     
                     documents.append({
                         '_index': self.index_name,
@@ -92,6 +94,7 @@ class TablesSearch:
                             'table_id' : table_id,
                             'caption' : caption,
                             'body' : body,
+                            'mentions' : mentions,
                             'context_paragraphs' : context_paragraphs
                         }
                     })

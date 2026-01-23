@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request
-from main import main
 from search import Search
 from figures_search import FigureSearch
 from query_functions import extract_dates_from_query, build_date_filter
@@ -7,14 +6,12 @@ from query_functions import extract_dates_from_query, build_date_filter
 app = Flask(__name__)
 
 # =========================
-# Inizializzazione
+# Connessioni Elasticsearch
 # =========================
 
-main()
 search_client = Search()
-
 figure_client = FigureSearch()
-figure_client.insert_documents()
+# NOTA: NON inseriamo documenti qui, app.py serve solo per leggere
 
 SCORE_THRESHOLD = 0
 PAGE_SIZE = 10
@@ -56,39 +53,16 @@ def handle_search():
     if index_type == 'articles':
         query_text, query_dates = extract_dates_from_query(query)
 
-        filters = []
-        for date in query_dates:
-            filters.append(build_date_filter(date))
+        filters = [build_date_filter(date) for date in query_dates]
 
         if query_text:
             es_results = search_client.search(
                 query={
                     "bool": {
                         "should": [
-                            {
-                                "match": {
-                                    "autori": {
-                                        "query": query_text,
-                                        "boost": 6
-                                    }
-                                }
-                            },
-                            {
-                                "match_phrase": {
-                                    "titolo": {
-                                        "query": query_text,
-                                        "boost": 6
-                                    }
-                                }
-                            },
-                            {
-                                "match": {
-                                    "titolo": {
-                                        "query": query_text,
-                                        "boost": 3
-                                    }
-                                }
-                            }
+                            {"match": {"autori": {"query": query_text, "boost": 6}}},
+                            {"match_phrase": {"titolo": {"query": query_text, "boost": 6}}},
+                            {"match": {"titolo": {"query": query_text, "boost": 3}}}
                         ],
                         "minimum_should_match": 1,
                         "filter": filters
@@ -98,11 +72,7 @@ def handle_search():
             )
         else:
             es_results = search_client.search(
-                query={
-                    "bool": {
-                        "filter": filters
-                    }
-                },
+                query={"bool": {"filter": filters}},
                 size=1000
             )
 
@@ -112,41 +82,12 @@ def handle_search():
     else:
         es_results = figure_client.search(
             query={
-                'bool': {
-                    'should': [
-                        {
-                            'match_phrase': {
-                                'caption': {
-                                    'query': query,
-                                    'boost': 10
-                                }
-                            }
-                        },
-                        {
-                            'match': {
-                                'caption': {
-                                    'query': query,
-                                    'boost': 7,
-                                    'fuzziness': 'AUTO'
-                                }
-                            }
-                        },
-                        {
-                            'match': {
-                                'citing_paragraphs': {
-                                    'query': query,
-                                    'boost': 5
-                                }
-                            }
-                        },
-                        {
-                            'match': {
-                                'semantic_context': {
-                                    'query': query,
-                                    'boost': 5
-                                }
-                            }
-                        }
+                "bool": {
+                    "should": [
+                        {"match_phrase": {"caption": {"query": query, "boost": 10}}},
+                        {"match": {"caption": {"query": query, "boost": 7, "fuzziness": "AUTO"}}},
+                        {"match": {"mentions": {"query": query, "boost": 5}}},
+                        {"match": {"semantic_context": {"query": query, "boost": 5}}}
                     ]
                 }
             },
@@ -157,13 +98,9 @@ def handle_search():
     # POST-PROCESSING
     # =========================
 
-    filtered_results = [
-        res for res in es_results['hits']['hits']
-        if res['_score'] >= SCORE_THRESHOLD
-    ]
+    filtered_results = [res for res in es_results['hits']['hits'] if res['_score'] >= SCORE_THRESHOLD]
 
     total_filtered = len(filtered_results)
-
     start = page_from
     end = min(page_from + PAGE_SIZE, total_filtered)
     paginated_results = filtered_results[start:end]
@@ -215,7 +152,7 @@ def get_figure(id):
         'figure.html',
         url=document['_source']['url'],
         caption=document['_source']['caption'],
-        citing_paragraphs=document['_source'].get('citing_paragraphs', []),
+        citing_paragraphs=document['_source'].get('mentions', []),
         semantic_context=document['_source'].get('semantic_context', [])
     )
 

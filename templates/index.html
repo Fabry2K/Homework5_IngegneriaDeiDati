@@ -2,117 +2,135 @@
 
 {% block content %}
   {% if not results and request.method != 'POST' %}
-    <!-- HOME PAGE -->
     <div class="d-flex flex-column align-items-center justify-content-center" style="height: 80vh;">
       <h1 class="mb-4">Elasticsearch Tutorial</h1>
 
-      <!-- Form di ricerca -->
       <form method="POST" action="{{ url_for('handle_search') }}" class="search-bar" style="width: 100%; max-width: 600px;">
         <div class="input-group">
           <input type="text" class="form-control form-control-lg" name="query" id="query"
                  placeholder="Enter your search query..." autofocus style="font-size: 1.25rem; padding: 0.75rem;">
           <input type="hidden" name="index_type" value="{{ index_type }}">
-          <button type="submit" class="btn btn-primary btn-lg">Search</button>
+          <button type="submit" class="btn btn-primary btn-lg px-4">Search</button>
         </div>
       </form>
 
-      <!-- Bottone switch indice separato -->
-      <div class="mt-2 text-end" style="width: 100%; max-width: 600px;">
-        <form method="GET" action="{{ url_for('index') }}" style="display:inline-block;">
-          {% if index_type == 'articles' %}
-            <input type="hidden" name="index_type" value="figures">
-            <button type="submit" class="btn btn-outline-primary btn-sm">Switch to Figures</button>
-          {% else %}
-            <input type="hidden" name="index_type" value="articles">
-            <button type="submit" class="btn btn-outline-primary btn-sm">Switch to Articles</button>
+      <div class="mt-3 d-flex justify-content-between align-items-center" style="width: 100%; max-width: 600px;">
+        <div>
+          <p class="text-muted mb-0">Searching in: <strong>{{ index_type|capitalize }}</strong></p>
+        </div>
+        <div class="d-flex gap-2">
+          {% if index_type != 'articles' %}
+            <a href="{{ url_for('index', index_type='articles') }}" class="btn btn-outline-primary btn-sm">Switch to Articles</a>
           {% endif %}
-        </form>
+          {% if index_type != 'figures' %}
+            <a href="{{ url_for('index', index_type='figures') }}" class="btn btn-outline-primary btn-sm">Switch to Figures</a>
+          {% endif %}
+          {% if index_type != 'tables' %}
+            <a href="{{ url_for('index', index_type='tables') }}" class="btn btn-outline-primary btn-sm">Switch to Tables</a>
+          {% endif %}
+        </div>
       </div>
     </div>
 
   {% elif results %}
-    <!-- PAGINA RISULTATI -->
     <div class="container mt-4" style="max-width: 900px;">
 
-      <!-- Barra di ricerca larga + bottone switch in linea -->
-      <form method="POST" action="{{ url_for('handle_search') }}" class="mb-4 d-flex" style="width: 100%;">
-        <input type="text" class="form-control me-2" name="query" id="query"
-               placeholder="Enter your search query..." value="{{ query }}" style="font-size: 1.25rem; padding: 0.75rem;">
-        <button type="submit" class="btn btn-primary me-2">Search</button>
+      <form method="POST" action="{{ url_for('handle_search') }}" id="searchForm" class="mb-2 d-flex" style="width: 100%;">
+        <input type="text" class="form-control me-2" name="query" value="{{ query }}" style="font-size: 1.25rem; padding: 0.75rem;">
+        <input type="hidden" name="index_type" id="index_type_input" value="{{ index_type }}">
+        <button type="submit" class="btn btn-primary me-2 px-4">Search</button>
 
-        <!-- Bottone switch in linea -->
-        {% if index_type == 'articles' %}
-          <button type="submit" name="index_type" value="figures" class="btn btn-outline-primary">Switch to Figures</button>
-        {% else %}
-          <button type="submit" name="index_type" value="articles" class="btn btn-outline-primary">Switch to Articles</button>
+        {% if index_type != 'articles' %}
+          <button type="submit" class="btn btn-outline-primary me-1" onclick="document.getElementById('index_type_input').value='articles'">Articles</button>
+        {% endif %}
+        {% if index_type != 'figures' %}
+          <button type="submit" class="btn btn-outline-primary me-1" onclick="document.getElementById('index_type_input').value='figures'">Figures</button>
+        {% endif %}
+        {% if index_type != 'tables' %}
+          <button type="submit" class="btn btn-outline-primary" onclick="document.getElementById('index_type_input').value='tables'">Tables</button>
         {% endif %}
       </form>
+      
+      <div class="text-center mb-4">
+        <p class="text-muted small">Searching in: <strong>{{ index_type|capitalize }}</strong></p>
+      </div>
 
-      <!-- Paginazione -->
       <div class="d-flex justify-content-center align-items-center mb-3 gap-3">
-        {% if prev_from is not none and from_ > 0 %}
+        {% if prev_from is not none %}
           <form method="POST">
             <input type="hidden" name="query" value="{{ query }}">
             <input type="hidden" name="from_" value="{{ prev_from }}">
             <input type="hidden" name="index_type" value="{{ index_type }}">
-            <button type="submit" class="btn btn-secondary">← Previous</button>
+            <button type="submit" class="btn btn-secondary btn-sm">← Previous</button>
           </form>
         {% endif %}
-
-        <span>Showing results {{ from_ + 1 }}–{{ from_ + results|length }} out of {{ total }}</span>
-
+        <span class="text-muted small">Results {{ from_ + 1 }}–{{ from_ + results|length }} of {{ total }}</span>
         {% if next_from is not none %}
           <form method="POST">
             <input type="hidden" name="query" value="{{ query }}">
             <input type="hidden" name="from_" value="{{ next_from }}">
             <input type="hidden" name="index_type" value="{{ index_type }}">
-            <button type="submit" class="btn btn-secondary">Next →</button>
+            <button type="submit" class="btn btn-secondary btn-sm">Next →</button>
           </form>
         {% endif %}
       </div>
 
-      <!-- Lista risultati -->
       {% for result in results %}
-        <div class="mb-3 p-3 border rounded shadow-sm">
+        <div class="mb-4 p-3 border rounded shadow-sm bg-white">
           {% if index_type == 'articles' %}
             <h5><a href="{{ url_for('get_document', id=result._id) }}">{{ result._source.titolo }}</a></h5>
-            <p>
-              <strong>Autori:</strong> {{ result._source.autori | join(', ') }}<br>
-              <strong>Data:</strong> {{ result._source.data }}<br>
-              <strong>Abstract:</strong>
-              {% set abstract_preview = result._source.abstract[:200] %}
-              {{ abstract_preview }}{% if result._source.abstract|length > 200 %}...{% endif %}
+            <p class="mb-1 small"><strong>Autori:</strong> <span class="text-info">{{ result._source.autori | join(', ') }}</span></p>
+            <p class="mb-1 small">
+              <strong>Abstract Preview:</strong> 
+              {% set abs_str = result._source.abstract %}
+              <span class="text-secondary">{{ abs_str[:150] }}{% if abs_str|length > 150 %}...{% endif %}</span>
             </p>
+
+          {% elif index_type == 'figures' %}
+            <h5><a href="{{ url_for('get_figure', id=result._id) }}">Figure: {{ result._source.url }}</a></h5>
+            <p class="mb-1 small"><strong>Paper:</strong> {{ result._source.paper_id }}</p>
+            <p class="mb-1 small">
+              <strong>Caption Preview:</strong> 
+              {% set cap_str = result._source.caption %}
+              <span class="text-info">{{ cap_str[:150] }}{% if cap_str|length > 150 %}...{% endif %}</span>
+            </p>
+            <p class="mb-1 small">
+              <strong>Citing Paragraphs Preview:</strong>
+              {% if result._source.citing_paragraphs %}
+                {% set cit_str = result._source.citing_paragraphs | join(' | ') %}
+                <span class="text-dark">{{ cit_str[:150] }}{% if cit_str|length > 150 %}...{% endif %}</span>
+              {% else %}
+                <span class="text-muted">None found</span>
+              {% endif %}
+            </p>
+
           {% else %}
-            <h5><a href="{{ url_for('get_figure', id=result._id) }}">{{ result._source.url }}</a></h5>
-            <p>
-              <strong>Caption:</strong> {{ result._source.caption }}
+            <h5><a href="{{ url_for('get_table', id=result._id) }}">Table: {{ result._source.table_id }}</a></h5>
+            <p class="mb-1 small"><strong>Paper:</strong> {{ result._source.paper_id }}</p>
+            <p class="mb-1 small"><strong>Caption:</strong> {{ result._source.caption }}</p>
+            <p class="mb-1 small">
+              <strong>Context Paragraphs:</strong> 
+              {% if result._source.context_paragraphs %}
+                {% set cp_str = result._source.context_paragraphs | join(' | ') %}
+                <span class="text-info">{{ cp_str[:150] }}{% if cp_str|length > 150 %}...{% endif %}</span>
+              {% else %}
+                <span class="text-muted">None found</span>
+              {% endif %}
+            </p>
+            <p class="mb-1 small">
+              <strong>Body Preview:</strong> 
+              {% set body_str = result._source.body | join(' ') %}
+              <span class="text-secondary">{{ body_str[:150] }}{% if body_str|length > 150 %}...{% endif %}</span>
             </p>
           {% endif %}
-          <small>
-            {% if result._score %}<i>Score: {{ result._score }}</i>{% endif %}
-          </small>
+
+          <div class="mt-2">
+            <span class="badge rounded-pill bg-light text-muted border" style="font-weight: normal; font-size: 0.75rem;">
+              Relevance Score: {{ result._score | round(3) }}
+            </span>
+          </div>
         </div>
       {% endfor %}
-
-    </div>
-
-  {% elif request.method == 'POST' %}
-    <!-- Nessun risultato -->
-    <div class="container mt-4" style="max-width: 900px;">
-      <form method="POST" action="{{ url_for('handle_search') }}" class="mb-4 d-flex" style="width: 100%;">
-        <input type="text" class="form-control me-2" name="query" id="query"
-               placeholder="Enter your search query..." value="{{ query }}" style="font-size: 1.25rem; padding: 0.75rem;">
-        <button type="submit" class="btn btn-primary me-2">Search</button>
-
-        <!-- Bottone switch in linea -->
-        {% if index_type == 'articles' %}
-          <button type="submit" name="index_type" value="figures" class="btn btn-outline-primary">Switch to Figures</button>
-        {% else %}
-          <button type="submit" name="index_type" value="articles" class="btn btn-outline-primary">Switch to Articles</button>
-        {% endif %}
-      </form>
-      <p class="text-center">No results found.</p>
     </div>
   {% endif %}
 {% endblock %}

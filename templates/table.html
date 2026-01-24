@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 900px;">
+  <p>
+    <a href="javascript:history.back(1)" class="btn btn-primary">
+      ← Back
+    </a>
+  </p>
+
+  <h2>Table</h2>
+  <p><b>Table ID:</b> {{ table.table_id }}</p>
+  <p><b>Paper ID:</b> {{ table.paper_id }}</p>
+
+  <hr>
+
+  <!-- TABLE CONTENT -->
+  <h4>Table Content</h4>
+  <div class="border rounded p-3 bg-light mb-4">
+    {% if table.body is iterable and table.body is not string %}
+      {{ table.body | join(' | ') | safe }}
+    {% else %}
+      {{ table.body | safe }}
+    {% endif %}
+  </div>
+
+  <!-- CAPTION -->
+  <h4>Caption</h4>
+  <p>{{ table.caption | safe }}</p>
+
+  <!-- MENTIONS -->
+  <h4>Mentions in the Paper</h4>
+  {% if table.mentions %}
+    {% for p in table.mentions %}
+      <p>{{ p | safe }}</p>
+    {% endfor %}
+  {% else %}
+    <p class="text-muted">No explicit mentions found.</p>
+  {% endif %}
+
+  <!-- CONTEXT PARAGRAPHS -->
+  <h4>Context Paragraphs</h4>
+  {% if table.context_paragraphs %}
+    {% for p in table.context_paragraphs %}
+      <p>{{ p | safe }}</p>
+    {% endfor %}
+  {% else %}
+    <p class="text-muted">No context paragraphs found.</p>
+  {% endif %}
+</div>
+{% endblock %}

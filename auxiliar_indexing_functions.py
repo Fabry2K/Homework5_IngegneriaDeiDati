@@ -66,7 +66,7 @@ def estrazione_context_paragraphs(tree, keywords):
     keywords = {k.lower() for k in keywords if k.lower() not in STOP_WORDS}
 
     #fisso un minimo di match per evitare falsi positivi
-    min_matches = max(1, len(keywords) // 2)
+    min_matches = max(1, len(keywords) // 9)
 
     for s in section:
 

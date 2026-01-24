@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request
 from search import Search
 from figures_search import FigureSearch
+from tables_search import TablesSearch
 from query_functions import extract_dates_from_query, build_date_filter
 
 app = Flask(__name__)
@@ -11,7 +12,7 @@ app = Flask(__name__)
 
 search_client = Search()
 figure_client = FigureSearch()
-# NOTA: non inseriamo documenti qui, app.py serve solo per leggere
+table_client = TablesSearch()
 
 SCORE_THRESHOLD = 0
 PAGE_SIZE = 10
@@ -78,7 +79,7 @@ def handle_search():
     # =========================
     # SEARCH FIGURE
     # =========================
-    else:
+    elif index_type == 'figures':
         es_results = figure_client.search(
             query={
                 "bool": {
@@ -94,10 +95,30 @@ def handle_search():
         )
 
     # =========================
+    # SEARCH TABELLE
+    # =========================
+    else:  # index_type == 'tables'
+        es_results = table_client.search(
+            query={
+                "bool": {
+                    "should": [
+                        {"match_phrase": {"caption": {"query": query, "boost": 10}}},
+                        {"match": {"body": {"query": query, "boost": 7}}},
+                        {"match": {"context_paragraphs": {"query": query, "boost": 5}}}
+                    ]
+                }
+            },
+            size=1000
+        )
+
+    # =========================
     # POST-PROCESSING
     # =========================
 
-    filtered_results = [res for res in es_results['hits']['hits'] if res['_score'] >= SCORE_THRESHOLD]
+    filtered_results = [
+        res for res in es_results['hits']['hits']
+        if res['_score'] >= SCORE_THRESHOLD
+    ]
 
     total_filtered = len(filtered_results)
     start = page_from
@@ -133,7 +154,7 @@ def get_document(id):
         autori=document['_source']['autori'],
         data=document['_source']['data'],
         abstract=document['_source']['abstract'].split('\n'),
-        testo=document['_source']['testo']  # già HTML-safe nell'indice
+        testo=document['_source']['testo']
     )
 
 # =========================
@@ -142,21 +163,52 @@ def get_document(id):
 
 @app.get('/figure/<id>')
 def get_figure(id):
-    document = figure_client.es.get(
+    doc = figure_client.es.get(
         index=figure_client.index_name,
         id=id
-    )
+    )['_source']
+
+    figure = {
+        "figure_id": id,
+        "paper_id": doc.get("paper_id"),
+        "url": doc.get("url"),
+        "caption": doc.get("caption", ""),
+        "citing_paragraphs": doc.get("citing_paragraphs", []),
+        "semantic_context": doc.get("semantic_context", [])
+    }
 
     return render_template(
         'figure.html',
-        url=document['_source']['url'],
-        caption_html=document['_source'].get('caption_html', ''),
-        citing_paragraphs_html=document['_source'].get('citing_paragraphs_html', []),
-        semantic_context_html=document['_source'].get('semantic_context_html', [])
+        figure=figure
     )
 
 # =========================
-# RUN
+# TABLE VIEW
+# =========================
+
+@app.get('/table/<id>')
+def get_table(id):
+    doc = table_client.es.get(
+        index=table_client.index_name,
+        id=id
+    )['_source']
+
+    table = {
+        "table_id": id,
+        "paper_id": doc.get("paper_id"),
+        "caption": doc.get("caption", ""),
+        "body": doc.get("body", ""),
+        "mentions": doc.get("mentions", []),
+        "context_paragraphs": doc.get("context_paragraphs", [])
+    }
+
+    return render_template(
+        'table.html',
+        table=table
+    )
+
+# =========================
+# MAIN
 # =========================
 
 if __name__ == '__main__':

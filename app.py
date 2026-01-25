@@ -3,6 +3,7 @@ from search import Search
 from figures_search import FigureSearch
 from tables_search import TablesSearch
 from query_functions import extract_dates_from_query, build_date_filter
+from query_functions import get_paperId
 
 app = Flask(__name__)
 
@@ -45,6 +46,9 @@ def index():
 @app.post('/')
 def handle_search():
     query = request.form.get('query', '')
+    paper_id = request.form.get("paper_id", "").strip()
+    paperId_filter = get_paperId(paper_id)
+    
     page_from = request.form.get('from_', type=int, default=0)
     index_type = request.form.get('index_type', 'articles')
 
@@ -60,20 +64,60 @@ def handle_search():
                 query={
                     "bool": {
                         "should": [
-                            {"match": {"autori": {"query": query_text, "boost": 6}}},
-                            {"match_phrase": {"titolo": {"query": query_text, "boost": 6}}},
-                            {"match": {"titolo": {"query": query_text, "boost": 3}}}
+                            {
+                                "match": {
+                                    "autori": {
+                                        "query": query_text, 
+                                        "boost": 6,
+                                        "fuzziness": "AUTO"
+                                    }
+                                }
+                            },
+                            {
+                                "match_phrase": {
+                                    "titolo": {
+                                        "query": query_text, 
+                                        "boost": 6
+                                    }
+                                }
+                            },
+                            {
+                                "match": {
+                                    "titolo": {
+                                        "query": query_text, 
+                                        "boost": 3,
+                                        "fuzziness": "AUTO"
+                                    }
+                                }
+                            }
                         ],
-                        "minimum_should_match": 1,
+                        "filter": filters
+                    }
+                },
+                size=1000
+            )
+        elif query_dates:
+            es_results = search_client.search(
+                query={
+                    "bool": {
+                        "must": {"match_all": {}},
                         "filter": filters
                     }
                 },
                 size=1000
             )
         else:
-            es_results = search_client.search(
-                query={"bool": {"filter": filters}},
-                size=1000
+            return render_template(
+                'index.html',
+                query=query,
+                results=[],
+                from_=0,
+                total=0,
+                page_size=PAGE_SIZE,
+                prev_from=None,
+                next_from=None,
+                es_ok=search_client.ping(),
+                index_type=index_type
             )
 
     # =========================
@@ -84,11 +128,41 @@ def handle_search():
             query={
                 "bool": {
                     "should": [
-                        {"match_phrase": {"caption": {"query": query, "boost": 10}}},
-                        {"match": {"caption": {"query": query, "boost": 7, "fuzziness": "AUTO"}}},
-                        {"match": {"citing_paragraphs": {"query": query, "boost": 5}}},
-                        {"match": {"semantic_context": {"query": query, "boost": 5}}}
-                    ]
+                        {
+                            "match_phrase": {
+                                "caption": {
+                                    "query": query, 
+                                    "boost": 10
+                                }
+                            }
+                        },
+                        {
+                            "match": {
+                                "caption": {
+                                    "query": query, 
+                                    "boost": 7, 
+                                    "fuzziness": "AUTO"
+                                }
+                            }
+                        },
+                        {
+                            "match": {
+                                "citing_paragraphs": {
+                                    "query": query, 
+                                    "boost": 5
+                                }
+                            }
+                        },
+                        {
+                            "match": {
+                                "semantic_context": {
+                                    "query": query, 
+                                    "boost": 5
+                                }
+                            }
+                        }
+                    ],
+                    "filter": paperId_filter
                 }
             },
             size=1000
@@ -98,14 +172,46 @@ def handle_search():
     # SEARCH TABELLE
     # =========================
     else:  # index_type == 'tables'
+
         es_results = table_client.search(
             query={
                 "bool": {
                     "should": [
-                        {"match_phrase": {"caption": {"query": query, "boost": 10}}},
-                        {"match": {"body": {"query": query, "boost": 7}}},
-                        {"match": {"context_paragraphs": {"query": query, "boost": 5}}}
-                    ]
+                        {
+                            "match_phrase": {
+                                "caption": {
+                                    "query": query, 
+                                    "boost": 10
+                                }
+                            }
+                        },
+                        {
+                            "match": {
+                                "caption": {
+                                    "query": query, 
+                                    "boost": 7, 
+                                    "fuzziness": "AUTO"
+                                }
+                            }
+                        },
+                        {
+                            "match": {
+                                "context_paragraphs": {
+                                    "query": query, 
+                                    "boost": 7
+                                }
+                            }
+                        },
+                        {
+                            "match": {
+                                "mentions": {
+                                    "query": query, 
+                                    "boost": 7
+                                }
+                            }
+                        }
+                    ],
+                    "filter": paperId_filter 
                 }
             },
             size=1000

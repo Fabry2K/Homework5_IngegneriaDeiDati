@@ -54,3 +54,16 @@ def build_date_filter(query_data: str):
             }
         }
     }
+
+def get_paperId(paper_id):
+
+    filters = []
+    
+    if paper_id:
+        filters.append({
+            "term": {
+                "paper_id": paper_id
+            }
+        })
+    
+    return filters

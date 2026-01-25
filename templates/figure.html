@@ -10,7 +10,12 @@
 
   <h2>Figure</h2>
   <p><b>Paper ID:</b> {{ figure.paper_id }}</p>
-  <p><b>URL / Reference:</b> {{ figure.url }}</p>
+  <p>
+    <b>URL / Reference:</b>
+    <a href="{{ figure.url }}" target="_blank" rel="noopener noreferrer">
+      {{ figure.url }}
+    </a>
+  </p>
 
   <hr>
 

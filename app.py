@@ -132,7 +132,6 @@ def handle_search():
                 "bool": {
                     "should": [
                         {
-                            # MATCH FRASE ESATTA → massima rilevanza
                             "match_phrase": {
                                 "caption": {
                                     "query": query,
@@ -141,7 +140,6 @@ def handle_search():
                             }
                         },
                         {
-                            # MATCH STANDARD
                             "match": {
                                 "caption": {
                                     "query": query,
@@ -150,7 +148,6 @@ def handle_search():
                             }
                         },
                         {
-                            # MATCH FUZZY → fallback
                             "match": {
                                 "caption": {
                                     "query": query,

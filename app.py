@@ -2,8 +2,7 @@ from flask import Flask, render_template, request
 from search import Search
 from figures_search import FigureSearch
 from tables_search import TablesSearch
-from query_functions import extract_dates_from_query, build_date_filter
-from query_functions import get_paperId
+from query_functions import extract_dates_from_query, build_date_filter, get_paperId
 
 app = Flask(__name__)
 
@@ -45,16 +44,17 @@ def index():
 
 @app.post('/')
 def handle_search():
-    query = request.form.get('query', '')
-    paper_id = request.form.get("paper_id", "").strip()
+    query = request.form.get('query', '').strip()
+    paper_id = request.form.get('paper_id', '').strip()
     paperId_filter = get_paperId(paper_id)
-    
+
     page_from = request.form.get('from_', type=int, default=0)
     index_type = request.form.get('index_type', 'articles')
 
     # =========================
     # SEARCH ARTICOLI
     # =========================
+
     if index_type == 'articles':
         query_text, query_dates = extract_dates_from_query(query)
         filters = [build_date_filter(date) for date in query_dates]
@@ -67,7 +67,7 @@ def handle_search():
                             {
                                 "match": {
                                     "autori": {
-                                        "query": query_text, 
+                                        "query": query_text,
                                         "boost": 6,
                                         "fuzziness": "AUTO"
                                     }
@@ -76,7 +76,7 @@ def handle_search():
                             {
                                 "match_phrase": {
                                     "titolo": {
-                                        "query": query_text, 
+                                        "query": query_text,
                                         "boost": 6
                                     }
                                 }
@@ -84,18 +84,20 @@ def handle_search():
                             {
                                 "match": {
                                     "titolo": {
-                                        "query": query_text, 
+                                        "query": query_text,
                                         "boost": 3,
                                         "fuzziness": "AUTO"
                                     }
                                 }
                             }
                         ],
+                        "minimum_should_match": 1,
                         "filter": filters
                     }
                 },
                 size=1000
             )
+
         elif query_dates:
             es_results = search_client.search(
                 query={
@@ -123,45 +125,42 @@ def handle_search():
     # =========================
     # SEARCH FIGURE
     # =========================
+
     elif index_type == 'figures':
         es_results = figure_client.search(
             query={
                 "bool": {
                     "should": [
                         {
+                            # MATCH FRASE ESATTA → massima rilevanza
                             "match_phrase": {
                                 "caption": {
-                                    "query": query, 
-                                    "boost": 10
+                                    "query": query,
+                                    "boost": 15
                                 }
                             }
                         },
                         {
+                            # MATCH STANDARD
                             "match": {
                                 "caption": {
-                                    "query": query, 
-                                    "boost": 7, 
-                                    "fuzziness": "AUTO"
+                                    "query": query,
+                                    "boost": 8
                                 }
                             }
                         },
                         {
+                            # MATCH FUZZY → fallback
                             "match": {
-                                "citing_paragraphs": {
-                                    "query": query, 
-                                    "boost": 5
-                                }
-                            }
-                        },
-                        {
-                            "match": {
-                                "semantic_context": {
-                                    "query": query, 
-                                    "boost": 5
+                                "caption": {
+                                    "query": query,
+                                    "fuzziness": "AUTO",
+                                    "boost": 3
                                 }
                             }
                         }
                     ],
+                    "minimum_should_match": 1,
                     "filter": paperId_filter
                 }
             },
@@ -171,8 +170,8 @@ def handle_search():
     # =========================
     # SEARCH TABELLE
     # =========================
-    else:  # index_type == 'tables'
 
+    else:  # index_type == 'tables'
         es_results = table_client.search(
             query={
                 "bool": {
@@ -180,7 +179,7 @@ def handle_search():
                         {
                             "match_phrase": {
                                 "caption": {
-                                    "query": query, 
+                                    "query": query,
                                     "boost": 10
                                 }
                             }
@@ -188,30 +187,31 @@ def handle_search():
                         {
                             "match": {
                                 "caption": {
-                                    "query": query, 
-                                    "boost": 7, 
+                                    "query": query,
+                                    "boost": 7,
                                     "fuzziness": "AUTO"
                                 }
                             }
                         },
                         {
                             "match": {
-                                "context_paragraphs": {
-                                    "query": query, 
+                                "mentions": {
+                                    "query": query,
                                     "boost": 7
                                 }
                             }
                         },
                         {
                             "match": {
-                                "mentions": {
-                                    "query": query, 
+                                "context_paragraphs": {
+                                    "query": query,
                                     "boost": 7
                                 }
                             }
                         }
                     ],
-                    "filter": paperId_filter 
+                    "minimum_should_match": 1,
+                    "filter": paperId_filter
                 }
             },
             size=1000
@@ -229,6 +229,7 @@ def handle_search():
     total_filtered = len(filtered_results)
     start = page_from
     end = min(page_from + PAGE_SIZE, total_filtered)
+
     paginated_results = filtered_results[start:end]
 
     prev_from = start - PAGE_SIZE if start > 0 else None
@@ -279,8 +280,7 @@ def get_figure(id):
         "paper_id": doc.get("paper_id"),
         "url": doc.get("url"),
         "caption": doc.get("caption", ""),
-        "citing_paragraphs": doc.get("citing_paragraphs", []),
-        "semantic_context": doc.get("semantic_context", [])
+        "citing_paragraphs": doc.get("citing_paragraphs", [])
     }
 
     return render_template(
@@ -297,13 +297,15 @@ def get_table(id):
     doc = table_client.es.get(
         index=table_client.index_name,
         id=id
-    )['_source']
+    )['_source'
+
+    ]
 
     table = {
         "table_id": id,
         "paper_id": doc.get("paper_id"),
         "caption": doc.get("caption", ""),
-        "body": doc.get("body", ""),
+        "body": doc.get("body", []),
         "mentions": doc.get("mentions", []),
         "context_paragraphs": doc.get("context_paragraphs", [])
     }

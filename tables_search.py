@@ -1,5 +1,4 @@
 import os
-import time
 from lxml import html
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
@@ -21,6 +20,10 @@ class TablesSearch:
     def ping(self):
         return self.es.ping()
 
+    ############################
+    #### Creazione indice #####
+    ############################
+
     def create_index(self):
         self.es.indices.delete(index=self.index_name, ignore_unavailable=True)
         self.es.indices.create(index=self.index_name, body={
@@ -29,12 +32,16 @@ class TablesSearch:
                     'paper_id': {'type': 'keyword'},
                     'table_id': {'type': 'keyword'},
                     'caption': {'type': 'text'},
-                    'body': {'type': 'text'},
+                    'table_html': {'type': 'text'},
                     'mentions': {'type': 'text'},
                     'context_paragraphs': {'type': 'text'}
                 }
             }
         })
+
+    ############################
+    #### Indicizzazione #######
+    ############################
 
     def docs(self):
         documents = []
@@ -49,40 +56,60 @@ class TablesSearch:
             full_path = os.path.join(html_path, file)
             with open(full_path, 'r', encoding='utf-8') as f:
                 tree = html.fromstring(f.read())
+
                 tables = tree.xpath("//figure[contains(@class, 'ltx_table')]")
 
                 base_hrefs = tree.xpath("//base/@href")
-                paper_id = base_hrefs[0].strip("/").split("/")[-1] if base_hrefs else file.replace('.html', '')
+                paper_id = (
+                    base_hrefs[0].strip("/").split("/")[-1]
+                    if base_hrefs
+                    else file.replace('.html', '')
+                )
 
-                for t in tables:
-                    table_id = t.get("id", "NO_ID")
-                    caption = " ".join(c.strip() for c in t.xpath("./figcaption//text()") if c.strip())
+                for fig in tables:
+                    table_id = fig.get("id", "NO_ID")
+
+                    caption = " ".join(
+                        c.strip()
+                        for c in fig.xpath("./figcaption//text()")
+                        if c.strip()
+                    )
+
+                    table_node = fig.xpath(".//table")
+                    if not table_node:
+                        continue
+
+                    table_html = html.tostring(
+                        table_node[0],
+                        encoding="unicode",
+                        method="html"
+                    )
 
                     keywords = set(caption.split())
-                    body = []
-
-                    for row in t.xpath(".//tr"):
-                        cells = row.xpath(".//td//text() | .//th//text()")
-                        text = " ".join(c.strip() for c in cells if c.strip())
-                        if text:
-                            body.append(text)
-                            keywords.update(text.split())
+                    keywords.update(
+                        html.fromstring(table_html).text_content().split()
+                    )
 
                     context_paragraphs = estrazione_context_paragraphs(tree, keywords)
                     mentions = estrazione_mentions(tree, table_id)
 
-                    context_paragraphs = list(dict.fromkeys(p for p in context_paragraphs if p.strip()))
-                    mentions = list(dict.fromkeys(m for m in mentions if m.strip()))
+                    context_paragraphs = list(
+                        dict.fromkeys(p for p in context_paragraphs if p.strip())
+                    )
+                    mentions = list(
+                        dict.fromkeys(m for m in mentions if m.strip())
+                    )
 
                     keyword_counts.append(len(keywords))
 
                     documents.append({
                         '_index': self.index_name,
+                        '_id': f"{paper_id}::{table_id}",
                         '_source': {
                             'paper_id': paper_id,
                             'table_id': table_id,
                             'caption': caption,
-                            'body': body,
+                            'table_html': table_html,
                             'mentions': mentions,
                             'context_paragraphs': context_paragraphs
                         }
@@ -94,7 +121,11 @@ class TablesSearch:
         documents, keyword_counts = self.docs()
 
         for doc in documents:
-            self.es.index(index=self.index_name, body=doc['_source'])
+            self.es.index(
+                index=self.index_name,
+                id=doc['_id'],
+                body=doc['_source']
+            )
 
         avg_keywords = (
             sum(keyword_counts) / len(keyword_counts)
@@ -105,6 +136,10 @@ class TablesSearch:
             f"[TABLES] Indicizzate {len(documents)} tabelle | "
             f"Keyword medie per tabella: {avg_keywords:.2f}"
         )
+
+    ############################
+    #### Query ################
+    ############################
 
     def search(self, **query_args):
         return self.es.search(index=self.index_name, **query_args)

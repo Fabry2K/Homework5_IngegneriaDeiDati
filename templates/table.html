@@ -16,12 +16,25 @@
 
   <!-- TABLE CONTENT -->
   <h4>Table Content</h4>
-  <div class="border rounded p-3 bg-light mb-4">
-    {% if table.body is iterable and table.body is not string %}
-      {{ table.body | join(' | ') | safe }}
-    {% else %}
-      {{ table.body | safe }}
-    {% endif %}
+  <div class="border rounded p-3 bg-light mb-4" style="overflow-x:auto;">
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            padding: 8px 12px;  /* Aumenta lo spazio dentro le celle */
+            text-align: center;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #f8f9fa;
+        }
+        table, th, td {
+            border: 1px solid #dee2e6;
+        }
+    </style>
+    {{ table.table_html | safe }}
   </div>
 
   <!-- CAPTION -->

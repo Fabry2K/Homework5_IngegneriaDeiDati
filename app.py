@@ -7,6 +7,10 @@ from query_functions import get_paperId
 
 app = Flask(__name__)
 
+# =========================
+# Clients
+# =========================
+
 search_client = Search()
 figure_client = FigureSearch()
 table_client = TablesSearch()
@@ -14,6 +18,9 @@ table_client = TablesSearch()
 SCORE_THRESHOLD = 0
 PAGE_SIZE = 10
 
+# =========================
+# HOME
+# =========================
 
 @app.get('/')
 def index():
@@ -32,6 +39,9 @@ def index():
         index_type=index_type
     )
 
+# =========================
+# SEARCH
+# =========================
 
 @app.post('/')
 def handle_search():
@@ -42,9 +52,10 @@ def handle_search():
     page_from = request.form.get('from_', type=int, default=0)
     index_type = request.form.get('index_type', 'articles')
 
+    # ========= ARTICLES =========
     if index_type == 'articles':
         query_text, query_dates = extract_dates_from_query(query)
-        filters = [build_date_filter(date) for date in query_dates]
+        filters = [build_date_filter(d) for d in query_dates]
 
         if query_text:
             es_results = search_client.search(
@@ -68,6 +79,7 @@ def handle_search():
         else:
             es_results = {"hits": {"hits": []}}
 
+    # ========= FIGURES =========
     elif index_type == 'figures':
         es_results = figure_client.search(
             query={
@@ -82,7 +94,8 @@ def handle_search():
             size=1000
         )
 
-    else:  # tables
+    # ========= TABLES =========
+    else:
         es_results = table_client.search(
             query={
                 "bool": {
@@ -119,9 +132,49 @@ def handle_search():
         index_type=index_type
     )
 
+# =========================
+# DOCUMENT VIEW (ARTICLES)
+# =========================
+
+@app.get('/document/<id>')
+def get_document(id):
+    doc = search_client.retrieve_document(id)
+
+    return render_template(
+        'document.html',
+        titolo=doc['_source']['titolo'],
+        autori=doc['_source']['autori'],
+        data=doc['_source']['data'],
+        abstract=doc['_source']['abstract'].split('\n'),
+        testo=doc['_source']['testo']
+    )
 
 # =========================
-# TABLE VIEW (FIX VERO)
+# FIGURE VIEW
+# =========================
+
+@app.get('/figure/<id>')
+def get_figure(id):
+    doc = figure_client.es.get(
+        index=figure_client.index_name,
+        id=id
+    )['_source']
+
+    figure = {
+        "figure_id": id,
+        "paper_id": doc.get("paper_id"),
+        "url": doc.get("url"),
+        "caption": doc.get("caption", ""),
+        "citing_paragraphs": doc.get("citing_paragraphs", [])
+    }
+
+    return render_template(
+        'figure.html',
+        figure=figure
+    )
+
+# =========================
+# TABLE VIEW
 # =========================
 
 @app.get('/table/<id>')
@@ -137,7 +190,7 @@ def get_table(id):
         "table_id": id,
         "paper_id": doc.get("paper_id"),
         "caption": doc.get("caption", ""),
-        "table_html": doc.get("table_html", ""),  # ✅ CAMPO GIUSTO
+        "table_html": doc.get("table_html", ""),
         "mentions": doc.get("mentions", []),
         "context_paragraphs": doc.get("context_paragraphs", [])
     }
@@ -147,6 +200,9 @@ def get_table(id):
         table=table
     )
 
+# =========================
+# MAIN
+# =========================
 
 if __name__ == '__main__':
     app.run(debug=True)

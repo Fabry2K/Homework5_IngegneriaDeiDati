@@ -34,7 +34,7 @@ class FigureSearch:
                     'caption_html': {'type': 'text'},
                     'citing_paragraphs': {'type': 'text'},
                     'citing_paragraphs_html': {'type': 'text'},
-                    'figure_id': {'type': 'keyword'}  # aggiunto campo figura
+                    'figure_id': {'type': 'keyword'}  
                 }
             }
         })

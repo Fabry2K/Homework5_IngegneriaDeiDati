@@ -129,7 +129,8 @@ def handle_search():
         page_size=PAGE_SIZE,
         prev_from=start - PAGE_SIZE if start > 0 else None,
         next_from=end if end < total else None,
-        index_type=index_type
+        index_type=index_type,
+        paper_id=paper_id
     )
 
 # =========================

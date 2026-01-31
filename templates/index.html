@@ -113,10 +113,14 @@
             </p>
 
           {% elif index_type == 'figures' %}
-            <h5><a href="{{ url_for('get_figure', id=result._id) }}">Figure: {{ result._source.url }}</a></h5>
+            <h5>
+              <a href="{{ url_for('get_figure', id=result._id) }}">
+                Figure ID: {{ result._id }}
+              </a>
+            </h5>
             <p class="mb-1 small"><strong>Paper:</strong> {{ result._source.paper_id }}</p>
             <p class="mb-1 small">
-              <strong>Caption Preview:</strong> 
+              <strong>Caption Preview:</strong>
               {% set cap_str = result._source.caption %}
               <span class="text-info">{{ cap_str[:150] }}{% if cap_str|length > 150 %}...{% endif %}</span>
             </p>

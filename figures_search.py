@@ -33,7 +33,8 @@ class FigureSearch:
                     'caption': {'type': 'text'},
                     'caption_html': {'type': 'text'},
                     'citing_paragraphs': {'type': 'text'},
-                    'citing_paragraphs_html': {'type': 'text'}
+                    'citing_paragraphs_html': {'type': 'text'},
+                    'figure_id': {'type': 'keyword'}  # aggiunto campo figura
                 }
             }
         })
@@ -60,7 +61,7 @@ class FigureSearch:
                 article_base_url = f"https://arxiv.org/html/{paper_id}/"
                 paragraphs = [p for p in tree.xpath("//p") if p.text_content().strip()]
 
-                for fig in figures:
+                for idx, fig in enumerate(figures):
                     # Estrai caption
                     caption_list = fig.xpath(".//figcaption//text()")
                     caption = " ".join(c.strip() for c in caption_list if c.strip())
@@ -82,6 +83,9 @@ class FigureSearch:
                     if m:
                         figure_number = m.group(1)
 
+                    # Creazione ID univoco figura: paperID_idx
+                    figure_id = f"{paper_id}_{idx+1}"
+
                     citing_paragraphs = []
                     citing_paragraphs_html = []
 
@@ -99,13 +103,15 @@ class FigureSearch:
 
                     documents.append({
                         '_index': self.index_name,
+                        '_id': figure_id,  # assegnato come _id
                         '_source': {
                             'paper_id': paper_id,
                             'url': url,
                             'caption': caption,
                             'caption_html': html.tostring(fig, encoding='unicode', method='html'),
                             'citing_paragraphs': citing_paragraphs,
-                            'citing_paragraphs_html': citing_paragraphs_html
+                            'citing_paragraphs_html': citing_paragraphs_html,
+                            'figure_id': figure_id
                         }
                     })
 
@@ -115,7 +121,7 @@ class FigureSearch:
         documents = self.docs()
 
         for doc in documents:
-            self.es.index(index=self.index_name, body=doc['_source'])
+            self.es.index(index=self.index_name, id=doc['_id'], body=doc['_source'])
 
         print(f"[FIGURES] Indicizzate {len(documents)} figure")
 

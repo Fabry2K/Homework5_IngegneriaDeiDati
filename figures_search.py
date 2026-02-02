@@ -84,7 +84,7 @@ class FigureSearch:
                         figure_number = m.group(1)
 
                     # Creazione ID univoco figura: paperID_idx
-                    figure_id = f"{paper_id}_{idx+1}"
+                    figure_id = fig.get("id", "NO_ID")
 
                     citing_paragraphs = []
                     citing_paragraphs_html = []

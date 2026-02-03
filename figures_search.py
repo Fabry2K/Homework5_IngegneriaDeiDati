@@ -83,7 +83,7 @@ class FigureSearch:
                     if m:
                         figure_number = m.group(1)
 
-                    # Creazione ID univoco figura: paperID_idx
+                    # ID figura
                     figure_id = fig.get("id", "NO_ID")
 
                     citing_paragraphs = []

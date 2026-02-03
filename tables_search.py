@@ -27,14 +27,27 @@ class TablesSearch:
     def create_index(self):
         self.es.indices.delete(index=self.index_name, ignore_unavailable=True)
         self.es.indices.create(index=self.index_name, body={
+            'settings': {
+                'analysis': {
+                    'analyzer': {
+
+                        'lowercase_analyzer': {
+                            'type' : 'custom',
+                            'tokenizer' : 'standard',
+                            'filter' : ['lowercase']
+                        }
+
+                    }
+                }
+            },
             'mappings': {
                 'properties': {
                     'paper_id': {'type': 'keyword'},
                     'table_id': {'type': 'keyword'},
-                    'caption': {'type': 'text'},
+                    'caption': {'type': 'text', 'analyzer' : 'lowercase_analyzer'},
                     'table_html': {'type': 'text'},
-                    'mentions': {'type': 'text'},
-                    'context_paragraphs': {'type': 'text'}
+                    'mentions': {'type': 'text', 'analyzer' : 'lowercase_analyzer'},
+                    'context_paragraphs': {'type': 'text', 'analyzer' : 'lowercase_analyzer'}
                 }
             }
         })

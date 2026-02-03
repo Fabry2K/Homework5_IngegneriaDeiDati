@@ -25,13 +25,32 @@ class Search:
     def create_index(self):
         self.es.indices.delete(index=self.index_name, ignore_unavailable=True)
         self.es.indices.create(index=self.index_name, body={
+            'settings': {
+                'analysis': {
+                    'analyzer': {
+
+                        'content_analyzer': {
+                            'type' : 'custom',
+                            'tokenizer' : 'standard',
+                            'filter' : ['lowercase', 'stop']
+                        },
+
+                        'lowercase_analyzer': {
+                            'type' : 'custom',
+                            'tokenizer' : 'standard',
+                            'filter' : ['lowercase']
+                        }
+
+                    }
+                }
+            },
             'mappings': {
                 'properties': {
-                    'titolo': {'type': 'text'},
-                    'abstract': {'type': 'text'},
+                    'titolo': {'type': 'text', 'analyzer' : 'lowercase_analyzer'},
+                    'abstract': {'type': 'text', 'analyzer' : 'content_analyzer'},
                     'data': {'type': 'date', 'format': 'yyyy-MM-dd'},
-                    'autori': {'type': 'text'},
-                    'testo': {'type': 'text'}
+                    'autori': {'type': 'text', 'analyzer' : 'lowercase_analyzer'},
+                    'testo': {'type': 'text', 'analyzer' : 'content_analyzer'}
                 }
             }
         })

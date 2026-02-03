@@ -26,13 +26,26 @@ class FigureSearch:
     def create_index(self):
         self.es.indices.delete(index=self.index_name, ignore_unavailable=True)
         self.es.indices.create(index=self.index_name, body={
+            'settings': {
+                'analysis': {
+                    'analyzer': {
+
+                        'lowercase_analyzer': {
+                            'type' : 'custom',
+                            'tokenizer' : 'standard',
+                            'filter' : ['lowercase']
+                        }
+
+                    }
+                }
+            },
             'mappings': {
                 'properties': {
                     'paper_id': {'type': 'keyword'},
                     'url': {'type': 'keyword'},
-                    'caption': {'type': 'text'},
+                    'caption': {'type': 'text', 'analyzer' : 'lowercase_analyzer'},
                     'caption_html': {'type': 'text'},
-                    'citing_paragraphs': {'type': 'text'},
+                    'citing_paragraphs': {'type': 'text', 'analyzer' : 'lowercase_analyzer'},
                     'citing_paragraphs_html': {'type': 'text'},
                     'figure_id': {'type': 'keyword'}  
                 }

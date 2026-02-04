@@ -2,6 +2,9 @@ import os
 import re
 from lxml import html
 from urllib.parse import urljoin
+
+from auxiliar_indexing_functions import estrazione_mentions
+
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
 
@@ -46,7 +49,6 @@ class FigureSearch:
                     'caption': {'type': 'text', 'analyzer' : 'lowercase_analyzer'},
                     'caption_html': {'type': 'text'},
                     'citing_paragraphs': {'type': 'text', 'analyzer' : 'lowercase_analyzer'},
-                    'citing_paragraphs_html': {'type': 'text'},
                     'figure_id': {'type': 'keyword'}  
                 }
             }
@@ -99,20 +101,7 @@ class FigureSearch:
                     # ID figura
                     figure_id = fig.get("id", "NO_ID")
 
-                    citing_paragraphs = []
-                    citing_paragraphs_html = []
-
-                    for p in paragraphs:
-                        p_text = p.text_content().strip()
-
-                        if (
-                            (figure_number and f'Figure {figure_number}' in p_text) or
-                            (figure_number and f'Fig. {figure_number}' in p_text)
-                        ):
-                            citing_paragraphs.append(p_text)
-                            citing_paragraphs_html.append(
-                                html.tostring(p, encoding='unicode', method='html')
-                            )
+                    citing_paragraphs = estrazione_mentions(fig, figure_id)
 
                     documents.append({
                         '_index': self.index_name,
@@ -123,7 +112,6 @@ class FigureSearch:
                             'caption': caption,
                             'caption_html': html.tostring(fig, encoding='unicode', method='html'),
                             'citing_paragraphs': citing_paragraphs,
-                            'citing_paragraphs_html': citing_paragraphs_html,
                             'figure_id': figure_id
                         }
                     })

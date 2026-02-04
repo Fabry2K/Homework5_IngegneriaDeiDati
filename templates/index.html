@@ -125,7 +125,7 @@
               <span class="text-info">{{ cap_str[:150] }}{% if cap_str|length > 150 %}...{% endif %}</span>
             </p>
             <p class="mb-1 small">
-              <strong>Citing Paragraphs Preview:</strong>
+              <strong>Mentions Preview:</strong>
               {% if result._source.citing_paragraphs %}
                 {% set cit_str = result._source.citing_paragraphs | join(' | ') %}
                 <span class="text-dark">{{ cit_str[:150] }}{% if cit_str|length > 150 %}...{% endif %}</span>

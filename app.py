@@ -71,7 +71,7 @@ def handle_search():
                 },
                 size=1000
             )
-        elif query_dates:
+        if query_dates:
             es_results = search_client.search(
                 query={"bool": {"must": {"match_all": {}}, "filter": filters}},
                 size=1000

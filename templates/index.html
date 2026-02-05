@@ -106,6 +106,7 @@
           {% if index_type == 'articles' %}
             <h5><a href="{{ url_for('get_document', id=result._id) }}">{{ result._source.titolo }}</a></h5>
             <p class="mb-1 small"><strong>Autori:</strong> <span class="text-info">{{ result._source.autori | join(', ') }}</span></p>
+            <p class="mb-1 small"><strong>Data di pubblicazione:</strong> <span class="text-secondary">{{ result._source.data }}</span></p>
             <p class="mb-1 small">
               <strong>Abstract Preview:</strong> 
               {% set abs_str = result._source.abstract %}
